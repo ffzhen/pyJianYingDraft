@@ -29,7 +29,7 @@ class CozeVideoWorkflow:
             draft_folder_path: 剪映草稿文件夹路径
             project_name: 项目名称
         """
-        self.bearer_token = "cztei_hsNwRnVcJ3V0d5gaKsD3tAO8S8FxxOJZiFKdbjLK1NiCvqn1fMNaGI1c0MhRh7OtA"
+        self.bearer_token = "pat_n4y1hGj8jOusHQ8jHm1CPkPNBpP96jHGGoz8DhYQcJbkK9Q7JNjMGxOi4xuCof1T"
         self.workflow_id = "7545326358185525248"
         self.base_url = "https://api.coze.cn/v1/workflow"
         
@@ -96,7 +96,7 @@ class CozeVideoWorkflow:
         Returns:
             工作流结果数据或None
         """
-        url = f"{self.base_url}/run_histories/{execute_id}"
+        url = f"https://api.coze.cn/v1/workflows/{self.workflow_id}/run_histories/{execute_id}"
         
         print(f"⏳ 开始轮询工作流结果，最大尝试次数: {max_attempts}")
         
@@ -111,18 +111,38 @@ class CozeVideoWorkflow:
                 print(f"📊 轮询结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
                 
                 if result.get("code") == 0:
-                    data_str = result.get("data")
-                    if data_str and data_str != "null":
-                        try:
-                            # 解析内层JSON字符串
-                            data = json.loads(data_str)
-                            print("✅ 工作流执行完成，获得资源数据")
-                            return data
-                        except json.JSONDecodeError as e:
-                            print(f"❌ 数据解析失败: {e}")
-                            print(f"原始数据: {data_str}")
+                    data_array = result.get("data")
+                    if data_array and isinstance(data_array, list) and len(data_array) > 0:
+                        # 获取最新的执行记录
+                        execution_record = data_array[0]
+                        execute_status = execution_record.get("execute_status")
+                        
+                        print(f"📋 执行状态: {execute_status}")
+                        
+                        if execute_status == "Success":
+                            # 解析输出数据
+                            output_str = execution_record.get("output")
+                            if output_str:
+                                try:
+                                    output_data = json.loads(output_str)
+                                    print("✅ 工作流执行完成，获得资源数据")
+                                    return output_data
+                                except json.JSONDecodeError as e:
+                                    print(f"❌ 输出数据解析失败: {e}")
+                                    print(f"原始输出: {output_str}")
+                            else:
+                                print("⚠️  工作流完成但无输出数据")
+                                return execution_record
+                        elif execute_status == "Failed":
+                            error_code = execution_record.get("error_code", "未知错误")
+                            print(f"❌ 工作流执行失败: {error_code}")
+                            return None
+                        elif execute_status == "Running":
+                            print("📋 工作流仍在运行中...")
+                        else:
+                            print(f"📋 工作流状态: {execute_status}")
                     else:
-                        print("📋 工作流仍在处理中...")
+                        print("📋 暂无执行记录...")
                 else:
                     print(f"❌ 轮询出错: {result.get('msg')}")
                 
@@ -150,15 +170,26 @@ class CozeVideoWorkflow:
             print("🎬 开始视频合成...")
             print(f"📋 合成参数: {json.dumps(coze_result, ensure_ascii=False, indent=2)}")
             
+            # 解析嵌套的Output数据
+            actual_data = coze_result
+            if 'Output' in coze_result:
+                try:
+                    output_str = coze_result['Output']
+                    actual_data = json.loads(output_str)
+                    print(f"📋 解析后的数据: {json.dumps(actual_data, ensure_ascii=False, indent=2)}")
+                except json.JSONDecodeError as e:
+                    print(f"⚠️  Output解析失败，使用原始数据: {e}")
+                    actual_data = coze_result
+            
             # 配置视频合成参数
             video_inputs = {
                 # 必需参数
-                'audio_url': coze_result.get('audioUrl', ''),
-                'title': coze_result.get('title', '美貌对穷人而言真的是灾难吗'),
-                'content': coze_result.get('content', ''),
-                'video_url': coze_result.get('videoUrl', ''),
-                'recordId': coze_result.get('recordId', ''),
-                'tableId': coze_result.get('tableId', ''),
+                'audio_url': actual_data.get('audioUrl', ''),
+                'title': actual_data.get('title', '美貌对穷人而言真的是灾难吗'),
+                'content': actual_data.get('content', ''),
+                'video_url': actual_data.get('videoUrl', ''),
+                'recordId': actual_data.get('recordId', ''),
+                'tableId': actual_data.get('tableId', ''),
                 
                 # 火山引擎ASR配置
                 'volcengine_appid': '6046310832',

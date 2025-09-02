@@ -5,6 +5,13 @@
 
 import os
 import json
+import sys
+
+# 添加本地 pyJianYingDraft 模块路径
+current_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.join(current_dir, '..', '..')
+sys.path.insert(0, project_root)
+
 import pyJianYingDraft as draft
 from pyJianYingDraft import TrackType, trange, tim, TextShadow, IntroType, TransitionType
 from typing import List, Dict, Any, Optional, Tuple
@@ -14,7 +21,11 @@ import re
 import math
 
 # 火山引擎ASR - 唯一字幕识别方案
-from .volcengine_asr import VolcengineASR
+try:
+    from .volcengine_asr import VolcengineASR
+except ImportError:
+    # 当直接运行此文件时，使用绝对导入
+    from volcengine_asr import VolcengineASR
 
 
 class VideoEditingWorkflow:
