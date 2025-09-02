@@ -4,7 +4,7 @@ import json
 import uuid
 from copy import deepcopy
 
-from typing import Dict, Tuple, Any
+from typing import Dict, Tuple, Any, List
 from typing import Union, Optional, Literal
 
 from .time_util import Timerange, tim
@@ -252,6 +252,32 @@ class TextShadow:
             "angle": self.angle
         }
 
+class TextStyleRange:
+    """文本样式范围类，用于富文本高亮"""
+    
+    def __init__(self, start: int, end: int, color: Optional[Tuple[float, float, float]] = None, 
+                 size: Optional[float] = None, bold: Optional[bool] = None, 
+                 italic: Optional[bool] = None, underline: Optional[bool] = None):
+        """
+        创建文本样式范围
+        
+        Args:
+            start (int): 起始字符索引
+            end (int): 结束字符索引
+            color (Tuple[float, float, float], optional): 文字颜色，RGB三元组，取值范围为[0, 1]
+            size (float, optional): 字体大小
+            bold (bool, optional): 是否加粗
+            italic (bool, optional): 是否斜体
+            underline (bool, optional): 是否下划线
+        """
+        self.start = start
+        self.end = end
+        self.color = color
+        self.size = size
+        self.bold = bold
+        self.italic = italic
+        self.underline = underline
+
 class TextSegment(VisualSegment):
     """文本片段类, 目前仅支持设置基本的字体样式"""
 
@@ -273,12 +299,17 @@ class TextSegment(VisualSegment):
     """文本气泡效果, 在放入轨道时加入素材列表中"""
     effect: Optional[TextEffect]
     """文本花字效果, 在放入轨道时加入素材列表中, 目前仅支持一部分花字效果"""
+    
+    highlight_ranges: List[TextStyleRange]
+    """富文本高亮范围列表"""
 
     def __init__(self, text: str, timerange: Timerange, *,
                  font: Optional[FontType] = None,
                  style: Optional[TextStyle] = None, clip_settings: Optional[ClipSettings] = None,
                  border: Optional[TextBorder] = None, background: Optional[TextBackground] = None,
-                 shadow: Optional[TextShadow] = None):
+                 shadow: Optional[TextShadow] = None,
+                 keywords: Optional[List[str]] = None,
+                 keyword_color: Optional[Tuple[float, float, float]] = None):
         """创建文本片段, 并指定其时间信息、字体样式及图像调节设置
 
         片段创建完成后, 可通过`ScriptFile.add_segment`方法将其添加到轨道中
@@ -292,6 +323,8 @@ class TextSegment(VisualSegment):
             border (`TextBorder`, optional): 文本描边参数, 默认无描边
             background (`TextBackground`, optional): 文本背景参数, 默认无背景
             shadow (`TextShadow`, optional): 文本阴影参数, 默认无阴影
+            keywords (`List[str]`, optional): 需要高亮的关键词列表, 如['年轻', '享受', '生活']
+            keyword_color (`Tuple[float, float, float]`, optional): 关键词高亮颜色, RGB三元组, 默认为黄色
         """
         super().__init__(uuid.uuid4().hex, None, timerange, 1.0, 1.0, False, clip_settings=clip_settings)
 
@@ -304,14 +337,22 @@ class TextSegment(VisualSegment):
 
         self.bubble = None
         self.effect = None
+        self.highlight_ranges = []
+        
+        # 自动处理关键词高亮
+        if keywords:
+            self._add_keyword_highlights(keywords, keyword_color)
 
     @classmethod
-    def create_from_template(cls, text: str, timerange: Timerange, template: "TextSegment") -> "TextSegment":
+    def create_from_template(cls, text: str, timerange: Timerange, template: "TextSegment", 
+                           keywords: Optional[List[str]] = None,
+                           keyword_color: Optional[Tuple[float, float, float]] = None) -> "TextSegment":
         """根据模板创建新的文本片段, 并指定其文本内容"""
         new_segment = cls(text, timerange, style=deepcopy(template.style), clip_settings=deepcopy(template.clip_settings),
                           border=deepcopy(template.border), background=deepcopy(template.background),
-                          shadow=deepcopy(template.shadow))
+                          shadow=deepcopy(template.shadow), keywords=keywords, keyword_color=keyword_color)
         new_segment.font = deepcopy(template.font)
+        new_segment.highlight_ranges = deepcopy(template.highlight_ranges)
 
         # 处理动画等
         if template.animations_instance:
@@ -360,6 +401,60 @@ class TextSegment(VisualSegment):
 
         return self
 
+    def _add_keyword_highlights(self, keywords: List[str], keyword_color: Optional[Tuple[float, float, float]] = None):
+        """自动为关键词添加高亮
+        
+        Args:
+            keywords (List[str]): 关键词列表
+            keyword_color (Tuple[float, float, float], optional): 关键词颜色，默认为黄色
+        """
+        # 默认黄色高亮
+        if keyword_color is None:
+            keyword_color = (1.0, 0.984313725490196, 0.7254901960784313)
+        
+        # 为每个关键词查找所有出现位置并添加高亮
+        for keyword in keywords:
+            if not keyword.strip():  # 跳过空关键词
+                continue
+                
+            # 查找关键词的所有出现位置
+            start = 0
+            while True:
+                pos = self.text.find(keyword, start)
+                if pos == -1:
+                    break
+                
+                # 添加高亮范围
+                end_pos = pos + len(keyword)
+                self.add_highlight(pos, end_pos, color=keyword_color)
+                
+                # 继续查找下一个出现位置
+                start = pos + 1
+
+    def add_highlight(self, start: int, end: int, color: Optional[Tuple[float, float, float]] = None,
+                     size: Optional[float] = None, bold: Optional[bool] = None,
+                     italic: Optional[bool] = None, underline: Optional[bool] = None) -> "TextSegment":
+        """添加高亮范围到文本中
+        
+        Args:
+            start (int): 起始字符索引
+            end (int): 结束字符索引
+            color (Tuple[float, float, float], optional): 高亮颜色，RGB三元组，取值范围为[0, 1]
+            size (float, optional): 字体大小
+            bold (bool, optional): 是否加粗
+            italic (bool, optional): 是否斜体
+            underline (bool, optional): 是否下划线
+        
+        Returns:
+            TextSegment: 返回自身以支持链式调用
+        """
+        if start < 0 or end > len(self.text) or start >= end:
+            raise ValueError(f"Invalid range [{start}, {end}] for text length {len(self.text)}")
+        
+        highlight_range = TextStyleRange(start, end, color, size, bold, italic, underline)
+        self.highlight_ranges.append(highlight_range)
+        return self
+
     def add_bubble(self, effect_id: str, resource_id: str) -> "TextSegment":
         """根据素材信息添加气泡效果, 相应素材信息可通过`ScriptFile.inspect_material`从模板中获取
 
@@ -381,6 +476,113 @@ class TextSegment(VisualSegment):
         self.extra_material_refs.append(self.effect.global_id)
         return self
 
+    def _create_style_ranges(self) -> List[Dict[str, Any]]:
+        """创建样式范围列表，处理富文本高亮"""
+        if not self.highlight_ranges:
+            # 没有高亮范围，返回默认样式
+            return [self._create_base_style(0, len(self.text))]
+        
+        # 按起始位置排序高亮范围
+        sorted_ranges = sorted(self.highlight_ranges, key=lambda x: x.start)
+        
+        styles = []
+        current_pos = 0
+        
+        for highlight_range in sorted_ranges:
+            # 在高亮范围之前添加默认样式
+            if current_pos < highlight_range.start:
+                styles.append(self._create_base_style(current_pos, highlight_range.start))
+            
+            # 添加高亮样式
+            styles.append(self._create_highlight_style(highlight_range))
+            current_pos = highlight_range.end
+        
+        # 在最后一个高亮范围之后添加默认样式
+        if current_pos < len(self.text):
+            styles.append(self._create_base_style(current_pos, len(self.text)))
+        
+        return styles
+
+    def _create_base_style(self, start: int, end: int) -> Dict[str, Any]:
+        """创建基础样式"""
+        style = {
+            "fill": {
+                "alpha": 1.0,
+                "content": {
+                    "render_type": "solid",
+                    "solid": {
+                        "alpha": 1.0,
+                        "color": list(self.style.color)
+                    }
+                }
+            },
+            "range": [start, end],
+            "size": self.style.size,
+            "bold": self.style.bold,
+            "italic": self.style.italic,
+            "underline": self.style.underline,
+            "strokes": [self.border.export_json()] if self.border else []
+        }
+        
+        if self.font:
+            style["font"] = {
+                "id": self.font.resource_id,
+                "path": "D:"  # 并不会真正在此处放置字体文件
+            }
+        if self.effect:
+            style["effectStyle"] = {
+                "id": self.effect.effect_id,
+                "path": "C:"  # 并不会真正在此处放置素材文件
+            }
+        if self.shadow:
+            style["shadows"] = [self.shadow.export_json()]
+            
+        return style
+
+    def _create_highlight_style(self, highlight_range: TextStyleRange) -> Dict[str, Any]:
+        """创建高亮样式"""
+        # 使用高亮范围的属性，如果没有指定则使用默认样式
+        color = highlight_range.color if highlight_range.color is not None else self.style.color
+        size = highlight_range.size if highlight_range.size is not None else self.style.size
+        bold = highlight_range.bold if highlight_range.bold is not None else self.style.bold
+        italic = highlight_range.italic if highlight_range.italic is not None else self.style.italic
+        underline = highlight_range.underline if highlight_range.underline is not None else self.style.underline
+        
+        style = {
+            "fill": {
+                "content": {
+                    "solid": {
+                        "color": list(color)
+                    }
+                }
+            },
+            "range": [highlight_range.start, highlight_range.end],
+            "size": size,
+            "bold": bold,
+            "italic": italic,
+            "underline": underline,
+            "strokes": [self.border.export_json()] if self.border else []
+        }
+        
+        # 添加useLetterColor标志以启用高亮颜色
+        if highlight_range.color is not None:
+            style["useLetterColor"] = True
+        
+        if self.font:
+            style["font"] = {
+                "id": self.font.resource_id,
+                "path": "D:"  # 并不会真正在此处放置字体文件
+            }
+        if self.effect:
+            style["effectStyle"] = {
+                "id": self.effect.effect_id,
+                "path": "C:"  # 并不会真正在此处放置素材文件
+            }
+        if self.shadow:
+            style["shadows"] = [self.shadow.export_json()]
+            
+        return style
+
     def export_material(self) -> Dict[str, Any]:
         """与此文本片段联系的素材, 以此不再单独定义Text_material类"""
         # 叠加各类效果的flag
@@ -393,40 +595,9 @@ class TextSegment(VisualSegment):
             check_flag |= 32
 
         content_json = {
-            "styles": [
-                {
-                    "fill": {
-                        "alpha": 1.0,
-                        "content": {
-                            "render_type": "solid",
-                            "solid": {
-                                "alpha": 1.0,
-                                "color": list(self.style.color)
-                            }
-                        }
-                    },
-                    "range": [0, len(self.text)],
-                    "size": self.style.size,
-                    "bold": self.style.bold,
-                    "italic": self.style.italic,
-                    "underline": self.style.underline,
-                    "strokes": [self.border.export_json()] if self.border else []
-                }
-            ],
+            "styles": self._create_style_ranges(),
             "text": self.text
         }
-        if self.font:
-            content_json["styles"][0]["font"] = {
-                "id": self.font.resource_id,
-                "path": "D:"  # 并不会真正在此处放置字体文件
-            }
-        if self.effect:
-            content_json["styles"][0]["effectStyle"] = {
-                "id": self.effect.effect_id,
-                "path": "C:"  # 并不会真正在此处放置素材文件
-            }
-        if self.shadow:
-            content_json["styles"][0]["shadows"] = [self.shadow.export_json()]
 
         ret = {
             "id": self.material_id,

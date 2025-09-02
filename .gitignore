@@ -11,3 +11,19 @@ dist/
 
 .venv/
 venv/
+
+# 安装包和临时文件
+*.exe
+*.msi
+*.dmg
+*.pkg
+
+# 临时材料文件夹
+temp_materials/
+
+# 日志文件
+*.log
+
+# 环境配置
+.env
+.env.local
