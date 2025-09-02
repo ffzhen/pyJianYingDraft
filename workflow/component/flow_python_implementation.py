@@ -14,7 +14,7 @@ import re
 import math
 
 # 火山引擎ASR - 唯一字幕识别方案
-from volcengine_asr import VolcengineASR
+from .volcengine_asr import VolcengineASR
 
 
 class VideoEditingWorkflow:
