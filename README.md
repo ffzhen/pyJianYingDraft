@@ -46,6 +46,7 @@
 - ☑️ 添加本地音频素材，并[自定义片段的时间、持续时长或播放速度](#素材截取与整体变速)
 - ☑️ 调整淡入淡出时长[(示例代码)](demo.py)，调整音量[(示例代码)](demo.py)及其[关键帧](#关键帧)
 - ☑️ 添加音频片段的[场景音效果](#添加片段特效)，并设置参数
+- ☑️ 添加[背景音乐](#添加背景音乐)，支持自动循环播放和音量控制[(示例代码)](demo.py)
 ### 轨道
 - ☑️ [添加轨道](#多轨道操作)以及[将片段添加到指定轨道](#多轨道操作)
 - ☑️ 自定义视频/滤镜/特效轨道的[层级关系](#多轨道操作)
@@ -585,7 +586,7 @@ seg2 = draft.TextSegment("这是一段很长的文本内容，当超过设定的
 ```python
 import pyJianYingDraft as draft
 
-# 假定已有草稿文件script（参见“快速上手”）
+# 假定已有草稿文件script（参见"快速上手"）
 
 # 将字幕导入到名为"subtitle"的轨道中，若轨道不存在将自动创建
 # 不指定style和clip_settings，则默认模拟剪映导入字幕时的样式
@@ -598,8 +599,108 @@ script.import_srt("subtitle.srt", track_name="subtitle",
 
 # 如果需要更复杂的样式或希望为字幕应用动画，可以为`style_reference`参数传入一个`TextSegment`对象作为样式参考（忽略其文本和片段长度设置）
 # 注意动画时间不会根据字幕片段长度进行调节，故当字幕片段过短时可能出现奇怪的效果
-script.import_srt("subtitle.srt", track_name="subtitle", style_reference=seg1)  # 以上一节“添加文本”中的文本作为参考
+script.import_srt("subtitle.srt", track_name="subtitle", style_reference=seg1)  # 以上一节"添加文本"中的文本作为参考
 
 # 默认不会采用`style_reference`片段中的`clip_settings`设置，如果需要的话请显式传入`clip_settings=None`
 script.import_srt("subtitle.srt", track_name="subtitle", style_reference=seg1, clip_settings=None)  # 相当于clip_settings=seg1.clip_settings
 ```
+
+#### 添加背景音乐
+> ℹ 背景音乐功能支持自动循环播放、音量控制、淡入淡出效果和智能音视频时长同步
+
+背景音乐可以为视频项目增添氛围，推荐使用较低音量（0.2-0.4）避免干扰主音频。本项目支持智能处理背景音乐时长，**自动与项目中最长的音频或视频保持同步**，有效避免视频结束后出现黑屏的问题。
+
+**基础用法：**
+```python
+import pyJianYingDraft as draft
+
+# 假定已有草稿文件script及主音频轨道
+
+# 创建背景音乐轨道
+script.add_track(draft.TrackType.audio, "背景音乐")
+
+# 方法1：直接添加背景音乐片段（适合简单场景）
+bg_music = draft.AudioMaterial("华尔兹.mp3")
+bg_segment = draft.AudioSegment(
+    bg_music,
+    trange("0s", "30s"),  # 30秒背景音乐
+    volume=0.3            # 音量30%
+)
+bg_segment.add_fade(tim("1s"), tim("1s"))  # 添加淡入淡出
+script.add_segment(bg_segment, "背景音乐")
+```
+
+**智能循环播放：**
+```python
+# 方法2：智能处理背景音乐时长（推荐）
+def add_background_music_smart(script, music_path, target_duration, volume=0.3):
+    """智能添加背景音乐，自动处理循环和截取"""
+    
+    bg_music = draft.AudioMaterial(music_path)
+    music_duration = bg_music.duration / 1000000  # 转为秒
+    
+    if music_duration >= target_duration:
+        # 音乐够长，直接截取
+        bg_segment = draft.AudioSegment(
+            bg_music,
+            trange("0s", f"{target_duration}s"),
+            volume=volume
+        )
+        bg_segment.add_fade(tim("1s"), tim("1s"))
+        script.add_segment(bg_segment, "背景音乐")
+    else:
+        # 音乐太短，循环播放
+        loop_count = int(target_duration / music_duration) + 1
+        current_time = 0
+        
+        for i in range(loop_count):
+            remaining_time = target_duration - current_time
+            if remaining_time <= 0:
+                break
+                
+            current_duration = min(music_duration, remaining_time)
+            
+            loop_segment = draft.AudioSegment(
+                bg_music,
+                trange(f"{current_time}s", f"{current_duration}s"),
+                volume=volume
+            )
+            
+            # 首尾淡入淡出
+            if i == 0:
+                loop_segment.add_fade(tim("1s"), tim("0s"))
+            if current_time + current_duration >= target_duration - 0.1:
+                loop_segment.add_fade(tim("0s"), tim("1s"))
+            
+            script.add_segment(loop_segment, "背景音乐")
+            current_time += current_duration
+
+# 使用示例
+add_background_music_smart(script, "华尔兹.mp3", 60, volume=0.25)
+```
+
+**在工作流中使用（支持智能时长同步）：**
+```python
+# 在 VideoEditingWorkflow 类中使用（已内置音视频同步支持）
+from workflow.component.flow_python_implementation import VideoEditingWorkflow
+
+workflow = VideoEditingWorkflow(draft_folder_path, "项目名")
+
+# 先添加视频和音频（自动记录时长）
+workflow.add_digital_human_video("video.mp4")  # 自动检测视频时长
+workflow.add_audio("audio.mp3")                # 自动检测音频时长
+
+# 背景音乐将自动与项目中最长的音频/视频保持同步
+workflow.add_background_music(
+    music_path="华尔兹.mp3",
+    target_duration=None,    # 自动使用项目总时长（音视频最长者）
+    volume=0.3               # 音量30%
+)
+```
+
+**音视频时长同步特性：**
+- ✅ **自动检测项目时长**：取音频和视频中的最长者作为项目总时长
+- ✅ **避免黑屏问题**：确保所有音频（包括背景音乐）不超过视频时长
+- ✅ **智能循环播放**：背景音乐自动循环至项目总时长
+- ✅ **智能截取**：过长的音频自动截取至视频时长
+- ✅ **字幕同步**：标题字幕自动使用项目总时长

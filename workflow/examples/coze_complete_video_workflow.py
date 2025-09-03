@@ -12,6 +12,7 @@ import json
 import time
 import sys
 import os
+from datetime import datetime
 from typing import Dict, Any, Optional
 
 # 添加项目根目录到路径
@@ -19,15 +20,33 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
 
 from workflow.component.flow_python_implementation import VideoEditingWorkflow
 
+def log_with_time(message: str, start_time: datetime = None):
+    """带时间戳的日志输出
+    
+    Args:
+        message: 日志消息
+        start_time: 开始时间，用于计算运行时间
+    """
+    current_time = datetime.now()
+    timestamp = current_time.strftime("%Y-%m-%d %H:%M:%S")
+    
+    if start_time:
+        elapsed = (current_time - start_time).total_seconds()
+        time_info = f"[{timestamp}] [已运行: {elapsed:.1f}s]"
+    else:
+        time_info = f"[{timestamp}]"
+    
+    print(f"{time_info} {message}")
+
 class CozeVideoWorkflow:
     """完整的Coze视频工作流"""
     
-    def __init__(self, draft_folder_path: str, project_name: str = "coze_video_workflow"):
+    def __init__(self, draft_folder_path: str, project_name: str = None):
         """初始化工作流
         
         Args:
             draft_folder_path: 剪映草稿文件夹路径
-            project_name: 项目名称
+            project_name: 项目名称（可选，如果不提供将使用title+时间戳生成）
         """
         self.bearer_token = "pat_n4y1hGj8jOusHQ8jHm1CPkPNBpP96jHGGoz8DhYQcJbkK9Q7JNjMGxOi4xuCof1T"
         self.workflow_id = "7545326358185525248"
@@ -38,8 +57,73 @@ class CozeVideoWorkflow:
             "Content-Type": "application/json"
         }
         
-        # 初始化视频合成工作流
-        self.video_workflow = VideoEditingWorkflow(draft_folder_path, project_name)
+        # 保存参数
+        self.draft_folder_path = draft_folder_path
+        self.base_project_name = project_name
+        self.video_workflow = None  # 稍后初始化
+        
+        # 记录开始时间
+        self.start_time = datetime.now()
+        
+        # 背景音乐配置
+        self.background_music_path = None
+        self.background_music_volume = 0.3
+        
+        # 豆包API配置
+        self.doubao_token = 'adac0afb-5fd4-4c66-badb-370a7ff42df5'
+        self.doubao_model = 'ep-m-20250902010446-mlwmf'
+    
+    def set_background_music(self, music_path: str, volume: float = 0.3):
+        """设置背景音乐
+        
+        Args:
+            music_path: 背景音乐文件路径
+            volume: 音量 (0-1)
+        """
+        if not os.path.exists(music_path):
+            raise ValueError(f"背景音乐文件不存在: {music_path}")
+        
+        self.background_music_path = music_path
+        self.background_music_volume = volume
+        log_with_time(f"🎵 背景音乐已设置: {os.path.basename(music_path)}，音量: {volume}", self.start_time)
+    
+    def set_doubao_api(self, token: str, model: str):
+        """设置豆包API配置
+        
+        Args:
+            token: 豆包API token
+            model: 豆包模型接入点
+        """
+        self.doubao_token = token
+        self.doubao_model = model
+        log_with_time(f"🤖 豆包API已设置: 模型={model}", self.start_time)
+    
+    def generate_project_name(self, title: str = None) -> str:
+        """生成项目名称
+        
+        Args:
+            title: 视频标题
+            
+        Returns:
+            项目名称
+        """
+        if self.base_project_name:
+            # 如果指定了基础项目名称，使用它加时间戳
+            base_name = self.base_project_name
+        elif title:
+            # 使用标题作为基础名称，清理特殊字符
+            import re
+            base_name = re.sub(r'[^\w\u4e00-\u9fff]', '_', title)[:20]  # 限制长度并清理特殊字符
+        else:
+            # 默认名称
+            base_name = "coze_video_workflow"
+        
+        # 添加时间戳
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        project_name = f"{base_name}_{timestamp}"
+        
+        log_with_time(f"📁 生成项目名称: {project_name}", self.start_time)
+        return project_name
         
     def call_coze_workflow(self, parameters: Dict[str, Any]) -> Optional[str]:
         """调用Coze工作流API
@@ -59,56 +143,56 @@ class CozeVideoWorkflow:
         }
         
         try:
-            print("🚀 正在调用Coze工作流API...")
-            print(f"📋 工作流ID: {self.workflow_id}")
-            print(f"📋 参数: {json.dumps(parameters, ensure_ascii=False, indent=2)}")
+            log_with_time("🚀 正在调用Coze工作流API...", self.start_time)
+            log_with_time(f"📋 工作流ID: {self.workflow_id}", self.start_time)
+            log_with_time(f"📋 参数: {json.dumps(parameters, ensure_ascii=False, indent=2)}", self.start_time)
             
             response = requests.post(url, headers=self.headers, json=payload)
             response.raise_for_status()
             
             result = response.json()
-            print(f"✅ API调用成功: {json.dumps(result, ensure_ascii=False, indent=2)}")
+            log_with_time(f"✅ API调用成功: {json.dumps(result, ensure_ascii=False, indent=2)}", self.start_time)
             
             if result.get("code") == 0:
                 execute_id = result.get("execute_id")
                 debug_url = result.get("debug_url")
-                print(f"🔄 任务已创建，执行ID: {execute_id}")
-                print(f"🔍 调试URL: {debug_url}")
+                log_with_time(f"🔄 任务已创建，执行ID: {execute_id}", self.start_time)
+                log_with_time(f"🔍 调试URL: {debug_url}", self.start_time)
                 return execute_id
             else:
-                print(f"❌ API返回错误: {result.get('msg')}")
+                log_with_time(f"❌ API返回错误: {result.get('msg')}", self.start_time)
                 return None
                 
         except requests.exceptions.RequestException as e:
-            print(f"❌ API调用失败: {e}")
+            log_with_time(f"❌ API调用失败: {e}", self.start_time)
             if hasattr(e, 'response') and e.response:
-                print(f"错误详情: {e.response.text}")
+                log_with_time(f"错误详情: {e.response.text}", self.start_time)
             return None
     
-    def poll_workflow_result(self, execute_id: str, max_attempts: int = 60, interval: int = 5) -> Optional[Dict[str, Any]]:
+    def poll_workflow_result(self, execute_id: str, max_attempts: int = 20, interval: int = 60) -> Optional[Dict[str, Any]]:
         """轮询工作流结果
         
         Args:
             execute_id: 执行ID
-            max_attempts: 最大尝试次数
-            interval: 轮询间隔（秒）
+            max_attempts: 最大尝试次数（默认20次，总计20分钟）
+            interval: 轮询间隔（默认60秒，即每分钟一次）
             
         Returns:
             工作流结果数据或None
         """
         url = f"https://api.coze.cn/v1/workflows/{self.workflow_id}/run_histories/{execute_id}"
         
-        print(f"⏳ 开始轮询工作流结果，最大尝试次数: {max_attempts}")
+        log_with_time(f"⏳ 开始轮询工作流结果，最大尝试次数: {max_attempts}，间隔: {interval}秒（总计: {max_attempts * interval}秒）", self.start_time)
         
         for attempt in range(max_attempts):
             try:
-                print(f"🔄 第 {attempt + 1}/{max_attempts} 次尝试...")
+                log_with_time(f"🔄 第 {attempt + 1}/{max_attempts} 次尝试...", self.start_time)
                 
                 response = requests.get(url, headers=self.headers)
                 response.raise_for_status()
                 
                 result = response.json()
-                print(f"📊 轮询结果: {json.dumps(result, ensure_ascii=False, indent=2)}")
+                log_with_time(f"📊 轮询结果: {json.dumps(result, ensure_ascii=False, indent=2)}", self.start_time)
                 
                 if result.get("code") == 0:
                     data_array = result.get("data")
@@ -117,7 +201,7 @@ class CozeVideoWorkflow:
                         execution_record = data_array[0]
                         execute_status = execution_record.get("execute_status")
                         
-                        print(f"📋 执行状态: {execute_status}")
+                        log_with_time(f"📋 执行状态: {execute_status}", self.start_time)
                         
                         if execute_status == "Success":
                             # 解析输出数据
@@ -125,36 +209,36 @@ class CozeVideoWorkflow:
                             if output_str:
                                 try:
                                     output_data = json.loads(output_str)
-                                    print("✅ 工作流执行完成，获得资源数据")
+                                    log_with_time("✅ 工作流执行完成，获得资源数据", self.start_time)
                                     return output_data
                                 except json.JSONDecodeError as e:
-                                    print(f"❌ 输出数据解析失败: {e}")
-                                    print(f"原始输出: {output_str}")
+                                    log_with_time(f"❌ 输出数据解析失败: {e}", self.start_time)
+                                    log_with_time(f"原始输出: {output_str}", self.start_time)
                             else:
-                                print("⚠️  工作流完成但无输出数据")
+                                log_with_time("⚠️  工作流完成但无输出数据", self.start_time)
                                 return execution_record
                         elif execute_status == "Failed":
                             error_code = execution_record.get("error_code", "未知错误")
-                            print(f"❌ 工作流执行失败: {error_code}")
+                            log_with_time(f"❌ 工作流执行失败: {error_code}", self.start_time)
                             return None
                         elif execute_status == "Running":
-                            print("📋 工作流仍在运行中...")
+                            log_with_time("📋 工作流仍在运行中...", self.start_time)
                         else:
-                            print(f"📋 工作流状态: {execute_status}")
+                            log_with_time(f"📋 工作流状态: {execute_status}", self.start_time)
                     else:
-                        print("📋 暂无执行记录...")
+                        log_with_time("📋 暂无执行记录...", self.start_time)
                 else:
-                    print(f"❌ 轮询出错: {result.get('msg')}")
+                    log_with_time(f"❌ 轮询出错: {result.get('msg')}", self.start_time)
                 
                 if attempt < max_attempts - 1:
                     time.sleep(interval)
                     
             except requests.exceptions.RequestException as e:
-                print(f"❌ 轮询请求失败: {e}")
+                log_with_time(f"❌ 轮询请求失败: {e}", self.start_time)
                 if attempt < max_attempts - 1:
                     time.sleep(interval)
         
-        print(f"⏰ 轮询超时（{max_attempts * interval}秒）")
+        log_with_time(f"⏰ 轮询超时（{max_attempts * interval}秒）", self.start_time)
         return None
     
     def synthesize_video(self, coze_result: Dict[str, Any]) -> Optional[str]:
@@ -167,8 +251,8 @@ class CozeVideoWorkflow:
             视频保存路径或None
         """
         try:
-            print("🎬 开始视频合成...")
-            print(f"📋 合成参数: {json.dumps(coze_result, ensure_ascii=False, indent=2)}")
+            log_with_time("🎬 开始视频合成...", self.start_time)
+            log_with_time(f"📋 合成参数: {json.dumps(coze_result, ensure_ascii=False, indent=2)}", self.start_time)
             
             # 解析嵌套的Output数据
             actual_data = coze_result
@@ -176,10 +260,19 @@ class CozeVideoWorkflow:
                 try:
                     output_str = coze_result['Output']
                     actual_data = json.loads(output_str)
-                    print(f"📋 解析后的数据: {json.dumps(actual_data, ensure_ascii=False, indent=2)}")
+                    log_with_time(f"📋 解析后的数据: {json.dumps(actual_data, ensure_ascii=False, indent=2)}", self.start_time)
                 except json.JSONDecodeError as e:
-                    print(f"⚠️  Output解析失败，使用原始数据: {e}")
+                    log_with_time(f"⚠️  Output解析失败，使用原始数据: {e}", self.start_time)
                     actual_data = coze_result
+            
+            # 获取标题并生成项目名称
+            title = actual_data.get('title', '美貌对穷人而言真的是灾难吗')
+            project_name = self.generate_project_name(title)
+            
+            # 初始化视频工作流（使用动态生成的项目名称）
+            if not self.video_workflow:
+                self.video_workflow = VideoEditingWorkflow(self.draft_folder_path, project_name)
+                log_with_time(f"🛠️  视频工作流已初始化: {project_name}", self.start_time)
             
             # 配置视频合成参数
             video_inputs = {
@@ -187,7 +280,7 @@ class CozeVideoWorkflow:
                 'audio_url': actual_data.get('audioUrl', ''),
                 'title': actual_data.get('title', '美貌对穷人而言真的是灾难吗'),
                 'content': actual_data.get('content', ''),
-                'video_url': actual_data.get('videoUrl', ''),
+                'digital_video_url': actual_data.get('videoUrl', ''),  # 修正参数名映射
                 'recordId': actual_data.get('recordId', ''),
                 'tableId': actual_data.get('tableId', ''),
                 
@@ -195,25 +288,29 @@ class CozeVideoWorkflow:
                 'volcengine_appid': '6046310832',
                 'volcengine_access_token': 'fMotJVOsyk6K_dDRoqM14kGdMJYBrcJY',
                 
-                # 豆包API配置（可选）
-                'doubao_token': 'your_doubao_token_here',
-                'doubao_model': 'doubao-1-5-pro-32k-250115',
+                # 豆包API配置（可选）- 如未配置将使用本地关键词提取算法
+                'doubao_token': self.doubao_token,  # 豆包API token
+                'doubao_model': self.doubao_model,  # 豆包模型接入点
                 
                 # 可选参数
                 'subtitle_delay': 0.0,
                 'subtitle_speed': 1.0,
+                
+                # 背景音乐配置（如果已设置）
+                'background_music_path': self.background_music_path,
+                'background_music_volume': self.background_music_volume,
             }
             
             # 执行视频合成
             save_path = self.video_workflow.process_workflow(video_inputs)
             
-            print(f"✅ 视频合成完成!")
-            print(f"📁 剪映项目已保存到: {save_path}")
+            log_with_time(f"✅ 视频合成完成!", self.start_time)
+            log_with_time(f"📁 剪映项目已保存到: {save_path}", self.start_time)
             
             return save_path
             
         except Exception as e:
-            print(f"❌ 视频合成失败: {e}")
+            log_with_time(f"❌ 视频合成失败: {e}", self.start_time)
             return None
     
     def run_complete_workflow(self, content: str, digital_no: str, voice_id: str) -> Optional[str]:
@@ -227,11 +324,11 @@ class CozeVideoWorkflow:
         Returns:
             最终视频保存路径或None
         """
-        print("🎯 启动完整Coze视频工作流")
-        print("=" * 60)
+        log_with_time("🎯 启动完整Coze视频工作流", self.start_time)
+        log_with_time("=" * 60, self.start_time)
         
         # 1. 调用Coze工作流
-        print("\n📞 步骤1: 调用Coze工作流API...")
+        log_with_time("\n📞 步骤1: 调用Coze工作流API...", self.start_time)
         parameters = {
             "content": content,
             "digitalNo": digital_no,
@@ -240,32 +337,33 @@ class CozeVideoWorkflow:
         
         execute_id = self.call_coze_workflow(parameters)
         if not execute_id:
-            print("❌ Coze工作流调用失败")
+            log_with_time("❌ Coze工作流调用失败", self.start_time)
             return None
         
         # 2. 轮询结果
-        print("\n⏳ 步骤2: 轮询工作流结果...")
-        coze_result = self.poll_workflow_result(execute_id, max_attempts=60, interval=5)
+        log_with_time("\n⏳ 步骤2: 轮询工作流结果...", self.start_time)
+        coze_result = self.poll_workflow_result(execute_id, max_attempts=20, interval=60)
         if not coze_result:
-            print("❌ 获取工作流结果失败")
+            log_with_time("❌ 获取工作流结果失败", self.start_time)
             return None
         
         # 3. 视频合成
-        print("\n🎬 步骤3: 开始视频合成...")
+        log_with_time("\n🎬 步骤3: 开始视频合成...", self.start_time)
         video_path = self.synthesize_video(coze_result)
         if not video_path:
-            print("❌ 视频合成失败")
+            log_with_time("❌ 视频合成失败", self.start_time)
             return None
         
-        print(f"\n🎉 完整工作流执行成功!")
-        print(f"📁 最终视频项目: {video_path}")
+        log_with_time(f"\n🎉 完整工作流执行成功!", self.start_time)
+        log_with_time(f"📁 最终视频项目: {video_path}", self.start_time)
         return video_path
 
 
 def main():
     """主函数"""
-    print("🎯 美貌与贫困主题 - 完整Coze视频工作流")
-    print("=" * 60)
+    start_time = datetime.now()
+    log_with_time("🎯 美貌与贫困主题 - 完整Coze视频工作流", start_time)
+    log_with_time("=" * 60, start_time)
     
     # 配置剪映草稿文件夹路径（请根据实际情况修改）
     draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
@@ -275,8 +373,23 @@ def main():
     digital_no = "D20250820190000004"
     voice_id = "AA20250822120001"
     
-    # 创建工作流实例
-    workflow = CozeVideoWorkflow(draft_folder_path, "beauty_poverty_complete_workflow")
+    # 创建工作流实例（项目名称将根据标题动态生成）
+    workflow = CozeVideoWorkflow(draft_folder_path)
+    
+    # 在最外层传入豆包API配置
+    workflow.set_doubao_api(
+        token='adac0afb-5fd4-4c66-badb-370a7ff42df5',
+        model='ep-m-20250902010446-mlwmf'
+    )
+    
+    # 设置背景音乐（可选）
+    background_music_path = os.path.join(os.path.dirname(__file__), '..', '..', '华尔兹.mp3')
+    if os.path.exists(background_music_path):
+        workflow.set_background_music(background_music_path, volume=0.3)
+        log_with_time(f"✅ 背景音乐已加载: {background_music_path}", start_time)
+    else:
+        log_with_time(f"⚠️  背景音乐文件未找到: {background_music_path}", start_time)
+        log_with_time("💡 如需添加背景音乐，请将华尔兹.mp3文件放置在项目根目录下", start_time)
     
     # 运行完整工作流
     result = workflow.run_complete_workflow(content, digital_no, voice_id)
