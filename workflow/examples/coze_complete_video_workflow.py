@@ -122,7 +122,7 @@ class CozeVideoWorkflow:
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         project_name = f"{base_name}_{timestamp}"
         
-        log_with_time(f"📁 生成项目名称: {project_name}", self.start_time)
+        log_with_time(f"Project name generated: {project_name} - 生成项目名称", self.start_time)
         return project_name
         
     def call_coze_workflow(self, parameters: Dict[str, Any]) -> Optional[str]:
@@ -265,8 +265,8 @@ class CozeVideoWorkflow:
                     log_with_time(f"⚠️  Output解析失败，使用原始数据: {e}", self.start_time)
                     actual_data = coze_result
             
-            # 获取标题并生成项目名称
-            title = actual_data.get('title', '美貌对穷人而言真的是灾难吗')
+            # 使用任务配置中的标题，而不是Coze返回的标题
+            title = self.task_config.get('title', 'AI视频生成')
             project_name = self.generate_project_name(title)
             
             # 初始化视频工作流（使用动态生成的项目名称）
@@ -278,7 +278,7 @@ class CozeVideoWorkflow:
             video_inputs = {
                 # 必需参数
                 'audio_url': actual_data.get('audioUrl', ''),
-                'title': actual_data.get('title', '美貌对穷人而言真的是灾难吗'),
+                'title': title,  # 使用任务配置中的标题
                 'content': actual_data.get('content', ''),
                 'digital_video_url': actual_data.get('videoUrl', ''),  # 修正参数名映射
                 'recordId': actual_data.get('recordId', ''),
@@ -313,13 +313,14 @@ class CozeVideoWorkflow:
             log_with_time(f"❌ 视频合成失败: {e}", self.start_time)
             return None
     
-    def run_complete_workflow(self, content: str, digital_no: str, voice_id: str) -> Optional[str]:
+    def run_complete_workflow(self, content: str, digital_no: str, voice_id: str, title: str = None) -> Optional[str]:
         """运行完整工作流
         
         Args:
             content: 内容文本
             digital_no: 数字编号
             voice_id: 语音ID
+            title: 视频标题（可选，如果不提供将使用默认标题）
             
         Returns:
             最终视频保存路径或None
@@ -332,7 +333,8 @@ class CozeVideoWorkflow:
         parameters = {
             "content": content,
             "digitalNo": digital_no,
-            "voiceId": voice_id
+            "voiceId": voice_id,
+            "title": title or "AI视频生成"  # 添加title参数
         }
         
         execute_id = self.call_coze_workflow(parameters)
@@ -369,9 +371,10 @@ def main():
     draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
     
     # 工作流参数
-    content = "为什么女孩越漂亮越应该好好读书，有个作家说我美貌对于富人来说是锦上添花，对于中产来说是一笔财富，但对于穷人来说就是灾难。"
+    content = "未来中国有可能出现九大现象。第一个，手机有可能会消失，燃油车可能会被淘汰，人民币已逐渐数字化。第四，孩子国家统一给一套房。第五，全民医疗免费。第六，房子太便宜没人要。第七，将来飞行汽车将会越来越多，不会为堵车而发愁。第八，高科技替代劳动力。第九，人均寿命可以达到100岁以上。你觉得哪个会成为现实呢？"
     digital_no = "D20250820190000004"
     voice_id = "AA20250822120001"
+    title = "未来中国可能出现的九大变化"  # 添加title参数
     
     # 创建工作流实例（项目名称将根据标题动态生成）
     workflow = CozeVideoWorkflow(draft_folder_path)
@@ -392,7 +395,7 @@ def main():
         log_with_time("💡 如需添加背景音乐，请将华尔兹.mp3文件放置在项目根目录下", start_time)
     
     # 运行完整工作流
-    result = workflow.run_complete_workflow(content, digital_no, voice_id)
+    result = workflow.run_complete_workflow(content, digital_no, voice_id, title)
     
     if result:
         print(f"\n✅ 工作流执行完成: {result}")

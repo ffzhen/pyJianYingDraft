@@ -1,0 +1,29 @@
+{
+  "concurrency": {
+    "optimal": 1,
+    "conservative": 1,
+    "aggressive": 2
+  },
+  "system_info": {
+    "cpu": {
+      "logical_cores": 12,
+      "physical_cores": 8,
+      "max_freq_mhz": 2501.0,
+      "current_usage": 15.3
+    },
+    "memory": {
+      "total_gb": 15.745063781738281,
+      "available_gb": 2.6688995361328125,
+      "usage_percent": 83.0
+    },
+    "disk": {
+      "total_gb": 243.84081649780273,
+      "free_gb": 177.44869995117188,
+      "usage_percent": 27.2
+    },
+    "system": "Windows",
+    "python_version": "3.13.2"
+  },
+  "recommendation": "optimal",
+  "generated_at": "2025-09-03 23:18:44"
+}

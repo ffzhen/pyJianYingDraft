@@ -41,7 +41,7 @@ class VolcengineASR:
         Returns:
             任务ID，失败返回None
         """
-        print(f"🎤 提交音频文件进行识别: {file_url}")
+        print(f"[INFO] 提交音频文件进行识别: {file_url}")
         
         try:
             response = requests.post(
@@ -63,23 +63,23 @@ class VolcengineASR:
                 }
             )
             
-            print(f"📤 提交响应: {response.text}")
+            print(f"[INFO] 提交响应: {response.text}")
             
             if response.status_code == 200:
                 result = response.json()
                 if result.get('message') == 'Success':
                     job_id = result.get('id')
-                    print(f"✅ 任务提交成功，任务ID: {job_id}")
+                    print(f"[OK] 任务提交成功，任务ID: {job_id}")
                     return job_id
                 else:
-                    print(f"❌ 任务提交失败: {result}")
+                    print(f"[ERROR] 任务提交失败: {result}")
                     return None
             else:
-                print(f"❌ HTTP错误: {response.status_code}, {response.text}")
+                print(f"[ERROR] HTTP错误: {response.status_code}, {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"❌ 提交音频文件异常: {e}")
+            print(f"[ERROR] 提交音频文件异常: {e}")
             return None
     
     def query_result(self, job_id: str) -> Optional[Dict[str, Any]]:
@@ -105,14 +105,14 @@ class VolcengineASR:
             
             if response.status_code == 200:
                 result = response.json()
-                print(f"📥 查询响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
+                print(f"[INFO] 查询响应: {json.dumps(result, ensure_ascii=False, indent=2)}")
                 return result
             else:
-                print(f"❌ 查询HTTP错误: {response.status_code}, {response.text}")
+                print(f"[ERROR] 查询HTTP错误: {response.status_code}, {response.text}")
                 return None
                 
         except Exception as e:
-            print(f"❌ 查询结果异常: {e}")
+            print(f"[ERROR] 查询结果异常: {e}")
             return None
     
     def wait_for_completion(self, job_id: str, max_wait_time: int = 300) -> Optional[Dict[str, Any]]:
@@ -125,7 +125,7 @@ class VolcengineASR:
         Returns:
             最终识别结果，失败返回None
         """
-        print(f"⏳ 等待识别完成，最大等待时间: {max_wait_time}秒")
+        print(f"[INFO] 等待识别完成，最大等待时间: {max_wait_time}秒")
         
         start_time = time.time()
         wait_interval = 5  # 每5秒查询一次
@@ -134,7 +134,7 @@ class VolcengineASR:
             result = self.query_result(job_id)
             
             if result is None:
-                print("❌ 查询失败")
+                print("[ERROR] 查询失败")
                 return None
             
             # 检查是否有utterances数据，如果有就表示成功
@@ -142,19 +142,19 @@ class VolcengineASR:
             code = result.get('code', -1)
             message = result.get('message', '')
             
-            print(f"📊 当前状态码: {code}, 消息: {message}")
+            print(f"[INFO] 当前状态码: {code}, 消息: {message}")
             
             if code == 0 and utterances:
-                print("✅ 识别完成!")
+                print("[OK] 识别完成!")
                 return result
             elif code != 0:
-                print(f"❌ 识别失败! 错误码: {code}, 消息: {message}")
+                print(f"[ERROR] 识别失败! 错误码: {code}, 消息: {message}")
                 return None
             else:
-                print(f"⏳ 识别进行中，等待{wait_interval}秒后重试...")
+                print(f"[INFO] 识别进行中，等待{wait_interval}秒后重试...")
                 time.sleep(wait_interval)
         
-        print("❌ 等待超时")
+        print("[ERROR] 等待超时")
         return None
     
     def process_audio_file(self, file_url: str, language: str = 'zh-CN') -> List[Dict[str, Any]]:
@@ -181,9 +181,49 @@ class VolcengineASR:
         
         # 3. 解析结果
         subtitles = self.parse_result_to_subtitles(result)
-        print(f"✅ 火山引擎识别完成，生成 {len(subtitles)} 段字幕")
+        print(f"[OK] 火山引擎识别完成，生成 {len(subtitles)} 段字幕")
         
         return subtitles
+    
+    def transcribe_audio_for_silence_detection(self, file_url: str, language: str = 'zh-CN') -> Optional[Dict[str, Any]]:
+        """转录音频用于停顿检测（返回原始ASR结果）
+        
+        Args:
+            file_url: 音频文件URL
+            language: 语言代码，默认中文
+            
+        Returns:
+            原始ASR结果，失败返回None
+        """
+        print(f"[INFO] 转录音频用于停顿检测: {file_url}")
+        
+        try:
+            # 提交音频文件
+            job_id = self.submit_audio_file(file_url, language)
+            if not job_id:
+                return None
+            
+            # 等待识别完成
+            result = self.wait_for_completion(job_id)
+            if not result:
+                return None
+            
+            # 检查识别结果
+            if result.get('code') != 0:
+                print(f"[ERROR] 识别失败: {result.get('message', '未知错误')}")
+                return None
+            
+            utterances = result.get('utterances', [])
+            if not utterances:
+                print("⚠️ 未识别到语音内容")
+                return None
+            
+            print(f"[OK] 音频转录完成，识别到 {len(utterances)} 个语音片段")
+            return result
+            
+        except Exception as e:
+            print(f"[ERROR] 音频转录失败: {e}")
+            return None
     
     def parse_result_to_subtitles(self, result: Dict[str, Any]) -> List[Dict[str, Any]]:
         """解析火山引擎结果为字幕格式
@@ -204,7 +244,7 @@ class VolcengineASR:
                 print("⚠️ 未找到识别结果")
                 return []
             
-            print(f"📊 解析 {len(utterances)} 个语音片段")
+            print(f"[INFO] 解析 {len(utterances)} 个语音片段")
             
             for i, utterance in enumerate(utterances):
                 text = utterance.get('text', '').strip()
@@ -228,7 +268,7 @@ class VolcengineASR:
             return subtitles
             
         except Exception as e:
-            print(f"❌ 解析结果异常: {e}")
+            print(f"[ERROR] 解析结果异常: {e}")
             return []
     
     def clean_text(self, text: str) -> str:
@@ -253,7 +293,7 @@ class VolcengineASR:
         Returns:
             关键词列表
         """
-        print(f"🤖 使用AI提取关键词: {text[:50]}...")
+        print(f"[INFO] 使用AI提取关键词: {text[:50]}...")
         
         try:
             # 检查豆包API配置
@@ -293,16 +333,16 @@ class VolcengineASR:
                 keywords = [kw.strip() for kw in content.split(',') if kw.strip()]
                 keywords = keywords[:max_keywords]  # 限制数量
                 
-                print(f"✅ AI提取关键词: {keywords}")
+                print(f"[OK] AI提取关键词: {keywords}")
                 return keywords
             else:
-                print(f"❌ AI关键词提取失败: {response.status_code}, {response.text}")
-                print("🔧 使用本地智能算法作为备用")
+                print(f"[ERROR] AI关键词提取失败: {response.status_code}, {response.text}")
+                print("[INFO] 使用本地智能算法作为备用")
                 return self._fallback_keyword_extraction(text, max_keywords)
                 
         except Exception as e:
-            print(f"❌ AI关键词提取异常: {e}")
-            print("🔧 使用本地智能算法作为备用")
+            print(f"[ERROR] AI关键词提取异常: {e}")
+            print("[INFO] 使用本地智能算法作为备用")
             return self._fallback_keyword_extraction(text, max_keywords)
     
     def _fallback_keyword_extraction(self, text: str, max_keywords: int = 10) -> List[str]:
@@ -315,7 +355,7 @@ class VolcengineASR:
         Returns:
             关键词列表
         """
-        print("🔄 使用备用关键词提取方法（智能词频统计）")
+        print("[INFO] 使用备用关键词提取方法（智能词频统计）")
         
         import re
         from collections import Counter
@@ -410,7 +450,7 @@ class VolcengineASR:
                     if len(final_keywords) >= max_keywords:
                         break
         
-        print(f"📊 备用方法提取关键词: {final_keywords}")
+        print(f"[INFO] 备用方法提取关键词: {final_keywords}")
         return final_keywords
 
 
@@ -430,15 +470,15 @@ def test_volcengine_asr():
     # 测试音频文件URL（您需要提供一个可访问的音频URL）
     file_url = "https://oss.oemi.jdword.com/prod/temp/srt/V20250901152556001.wav"
     
-    print(f"🎤 测试音频: {file_url}")
-    print("📊 预期结果: 生成精确的字幕时间戳")
+    print(f"[INFO] 测试音频: {file_url}")
+    print("[INFO] 预期结果: 生成精确的字幕时间戳")
     
     try:
         # 处理音频文件
         subtitles = asr.process_audio_file(file_url)
         
         if subtitles:
-            print(f"\n✅ 识别成功! 生成 {len(subtitles)} 段字幕")
+            print(f"\n[OK] 识别成功! 生成 {len(subtitles)} 段字幕")
             print("\n📋 字幕内容:")
             print("-" * 40)
             
@@ -456,10 +496,10 @@ def test_volcengine_asr():
             print(f"\n📁 SRT文件已保存: {output_path}")
             
         else:
-            print("❌ 识别失败")
+            print("[ERROR] 识别失败")
             
     except Exception as e:
-        print(f"❌ 测试异常: {e}")
+        print(f"[ERROR] 测试异常: {e}")
         import traceback
         traceback.print_exc()
 

@@ -8,6 +8,7 @@ from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional, List
 import os
 import sys
+import tempfile
 
 # 添加本地 pyJianYingDraft 模块路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -46,10 +47,14 @@ class VideoTemplateBase(ABC):
         # 导入ASR模块
         try:
             from .volcengine_asr import VolcengineASR
+            from .asr_silence_processor import ASRBasedSilenceRemover
             self.volcengine_asr = None
+            self.silence_remover = None
         except ImportError:
             from volcengine_asr import VolcengineASR
+            from asr_silence_processor import ASRBasedSilenceRemover
             self.volcengine_asr = None
+            self.silence_remover = None
     
     def _update_project_duration(self):
         """更新项目总时长，取音视频中的最长者"""
@@ -165,8 +170,18 @@ class VideoTemplateBase(ABC):
         
         return digital_segment
     
-    def add_audio(self, audio_url: str, duration: int = None, volume: float = None):
-        """添加音频"""
+    def add_audio(self, audio_url: str, duration: int = None, volume: float = None, remove_pauses: bool = False, 
+                  min_pause_duration: float = 0.2, max_word_gap: float = 0.8):
+        """添加音频
+        
+        Args:
+            audio_url: 音频URL
+            duration: 持续时长(秒)，如果为None则使用整个音频，如果有视频则限制为视频时长
+            volume: 音量
+            remove_pauses: 是否自动移除停顿，默认False
+            min_pause_duration: 最小停顿时长(秒)，默认0.2秒
+            max_word_gap: 单词间最大间隔(秒)，默认0.8秒
+        """
         if not self.script:
             raise ValueError("请先创建草稿")
         
@@ -176,6 +191,14 @@ class VideoTemplateBase(ABC):
         
         # 下载音频
         local_path = self._download_material(audio_url, "temp_materials/audio.mp3")
+        
+        # 如果需要移除停顿，先处理音频
+        if remove_pauses:
+            processed_audio_path = self._remove_audio_pauses(
+                local_path, min_pause_duration, max_word_gap
+            )
+            if processed_audio_path:
+                local_path = processed_audio_path
         
         # 获取音频素材信息
         audio_material = draft.AudioMaterial(local_path)
@@ -206,9 +229,7 @@ class VideoTemplateBase(ABC):
             volume=volume
         )
         
-        # 添加淡入淡出
-        audio_segment.add_fade(tim("0.5s"), tim("0.5s"))
-        
+          
         # 添加到音频轨道
         self.script.add_segment(audio_segment, track_name="音频轨道")
         
@@ -258,7 +279,7 @@ class VideoTemplateBase(ABC):
                 trange(tim("0s"), target_duration_microseconds),
                 volume=volume
             )
-            bg_music_segment.add_fade(tim("1.0s"), tim("1.0s"))
+            # 添加淡入淡出已移除
             self.script.add_segment(bg_music_segment, track_name="背景音乐轨道")
             print(f"🎵 背景音乐已添加: {os.path.basename(music_path)}，截取时长: {target_duration:.1f}s")
         else:
@@ -282,9 +303,9 @@ class VideoTemplateBase(ABC):
                 )
                 
                 if i == 0:
-                    loop_segment.add_fade(tim("1.0s"), tim("0s"))
+                # 第一个片段淡入已移除
                 if current_time + current_duration >= target_duration - 0.1:
-                    loop_segment.add_fade(tim("0s"), tim("1.0s"))
+                # 最后一个片段淡出已移除
                 
                 self.script.add_segment(loop_segment, track_name="背景音乐轨道")
                 current_time += current_duration
@@ -384,7 +405,7 @@ class VideoTemplateBase(ABC):
         if not audio_url:
             raise ValueError("audio_url 是必需参数")
         
-        self.add_audio(audio_url)
+        self.add_audio(audio_url, remove_pauses=True, min_pause_duration=0.2, max_word_gap=0.8)
         
         # 6. 添加背景音乐
         background_music_path = inputs.get('background_music_path')
@@ -418,6 +439,66 @@ class VideoTemplateBase(ABC):
         
         print(f"✅ 视频处理完成: {self.script.save_path}")
         return self.script.save_path
+    
+    def _remove_audio_pauses(self, audio_path: str, min_pause_duration: float = 0.8, 
+                           max_word_gap: float = 1.5) -> Optional[str]:
+        """
+        移除音频中的停顿
+        
+        Args:
+            audio_path: 音频文件路径
+            min_pause_duration: 最小停顿时长(秒)
+            max_word_gap: 单词间最大间隔(秒)
+            
+        Returns:
+            Optional[str]: 处理后的音频文件路径，如果失败返回None
+        """
+        if not self.volcengine_asr:
+            print("⚠️  ASR未初始化，跳过停顿移除")
+            return None
+        
+        try:
+            print("🔍 开始音频停顿检测和移除...")
+            
+            # 初始化停顿移除器
+            if not self.silence_remover:
+                self.silence_remover = ASRBasedSilenceRemover(min_pause_duration, max_word_gap)
+            
+            # 使用ASR转录音频
+            asr_result = self.volcengine_asr.transcribe_audio_for_silence_detection(audio_path)
+            
+            if not asr_result:
+                print("⚠️  ASR转录失败，跳过停顿移除")
+                return None
+            
+            # 创建临时输出文件
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
+                output_path = temp_file.name
+            
+            # 移除停顿
+            result = self.silence_remover.remove_pauses_from_audio(
+                audio_path, asr_result, output_path
+            )
+            
+            if result['success']:
+                pause_stats = result['pause_statistics']
+                print(f"✅ 停顿移除完成:")
+                print(f"   - 移除停顿时长: {result['removed_duration']:.2f} 秒")
+                print(f"   - 停顿次数: {pause_stats['pause_count']}")
+                print(f"   - 平均停顿时长: {pause_stats['average_pause_duration']:.2f} 秒")
+                print(f"   - 处理后音频时长: {result['processed_duration']:.2f} 秒")
+                
+                return output_path
+            else:
+                print("❌ 停顿移除失败")
+                # 清理临时文件
+                if os.path.exists(output_path):
+                    os.unlink(output_path)
+                return None
+                
+        except Exception as e:
+            print(f"❌ 停顿移除处理失败: {e}")
+            return None
 
 
 class VideoTemplateFactory:
