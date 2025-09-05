@@ -1,0 +1,53 @@
+{
+  "project_info": {
+    "project_name": "查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250905_122459_20250905_122831",
+    "execution_time": "2025-09-05 12:28:38",
+    "duration_seconds": 7.47,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250905_122459_20250905_122831\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905122216001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905122805002.mp4",
+    "material_video_url": "N/A",
+    "title": "二手房买卖僵持谁该妥协",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 13.71,
+    "project_duration": 13.71,
+    "subtitles_count": 11,
+    "original_subtitles_count": 11
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 7,
+    "keywords_list": [
+      "市场状态",
+      "客户房东",
+      "今年明年",
+      "二手房",
+      "再低不卖",
+      "租出去",
+      "更便宜"
+    ],
+    "high_value_keywords": [
+      "市场状态",
+      "客户房东",
+      "今年明年",
+      "二手房",
+      "再低不卖",
+      "租出去",
+      "更便宜"
+    ],
+    "wealth_related": [],
+    "policy_related": []
+  }
+}

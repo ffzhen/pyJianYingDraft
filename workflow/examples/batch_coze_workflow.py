@@ -42,6 +42,9 @@ class BatchCozeWorkflow:
         self.doubao_token = 'adac0afb-5fd4-4c66-badb-370a7ff42df5'
         self.doubao_model = 'ep-m-20250902010446-mlwmf'
         
+        # 飞书状态更新配置
+        self.feishu_task_source = None
+        
     def set_background_music(self, music_path: str, volume: float = 0.3):
         """设置背景音乐"""
         if not os.path.exists(music_path):
@@ -51,6 +54,11 @@ class BatchCozeWorkflow:
         self.background_music_path = music_path
         self.background_music_volume = volume
         print(f"[INFO] 背景音乐已设置: {os.path.basename(music_path)}")
+    
+    def set_feishu_task_source(self, task_source):
+        """设置飞书任务源，用于状态更新"""
+        self.feishu_task_source = task_source
+        print("[INFO] 飞书任务源已设置，将启用状态更新功能")
     
     def set_doubao_api(self, token: str, model: str):
         """设置豆包API配置"""
@@ -72,6 +80,7 @@ class BatchCozeWorkflow:
         digital_no = task_data.get('digital_no')
         voice_id = task_data.get('voice_id')
         title = task_data.get('title')
+        feishu_record_id = task_data.get('feishu_record_id')
         
         print(f"[{task_id}] 开始处理任务: {title}")
         start_time = datetime.now()
@@ -107,6 +116,19 @@ class BatchCozeWorkflow:
             print(f"[{task_id}] 任务完成: {title} - {'成功' if result else '失败'}")
             if result:
                 print(f"[{task_id}] 输出路径: {result}")
+                
+                # 更新飞书记录状态
+                if self.feishu_task_source and feishu_record_id:
+                    try:
+                        success = self.feishu_task_source.update_record_status(
+                            feishu_record_id, "视频生成完成"
+                        )
+                        if success:
+                            print(f"[{task_id}] ✅ 飞书记录状态已更新: 视频生成完成")
+                        else:
+                            print(f"[{task_id}] ⚠️ 飞书记录状态更新失败")
+                    except Exception as update_error:
+                        print(f"[{task_id}] ⚠️ 更新飞书记录状态时出错: {update_error}")
             
             return task_result
             
@@ -126,6 +148,19 @@ class BatchCozeWorkflow:
             
             with self.lock:
                 self.results.append(task_result)
+            
+            # 更新飞书记录状态为失败
+            if self.feishu_task_source and feishu_record_id:
+                try:
+                    success = self.feishu_task_source.update_record_status(
+                        feishu_record_id, "视频生成失败"
+                    )
+                    if success:
+                        print(f"[{task_id}] ✅ 飞书记录状态已更新: 视频生成失败")
+                    else:
+                        print(f"[{task_id}] ⚠️ 飞书记录状态更新失败")
+                except Exception as update_error:
+                    print(f"[{task_id}] ⚠️ 更新飞书记录状态时出错: {update_error}")
             
             return task_result
     

@@ -1,0 +1,88 @@
+{
+  "project_info": {
+    "project_name": "test_video_synthesis_20250905_20250905_010055",
+    "execution_time": "2025-09-05 01:01:10",
+    "duration_seconds": 15.49,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\test_video_synthesis_20250905_20250905_010055\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905004052001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905005321001.mp4",
+    "material_video_url": "N/A",
+    "title": "老房以旧换新收与换该如何抉择",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 57.07,
+    "project_duration": 57.07,
+    "subtitles_count": 38,
+    "original_subtitles_count": 38
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 24,
+    "keywords_list": [
+      "以旧换新",
+      "赚钱机会",
+      "老破小红利",
+      "全国范围",
+      "市场评估",
+      "房票换房",
+      "楼市主旋律",
+      "手里有房",
+      "住老房子",
+      "一线二线",
+      "房龄1530年",
+      "旧房政府收",
+      "新房直接换",
+      "每平米28000",
+      "2万",
+      "200个城市",
+      "未来3年",
+      "不容错过",
+      "正式启动",
+      "试点",
+      "收还是收",
+      "换还是换",
+      "房票怎么用",
+      "怎么换划算"
+    ],
+    "high_value_keywords": [
+      "以旧换新",
+      "赚钱机会",
+      "老破小红利",
+      "全国范围",
+      "市场评估",
+      "房票换房",
+      "楼市主旋律",
+      "手里有房",
+      "住老房子",
+      "一线二线",
+      "房龄1530年",
+      "旧房政府收",
+      "新房直接换",
+      "每平米28000",
+      "200个城市",
+      "未来3年",
+      "不容错过",
+      "正式启动",
+      "收还是收",
+      "换还是换",
+      "房票怎么用",
+      "怎么换划算"
+    ],
+    "wealth_related": [
+      "赚钱机会",
+      "2万"
+    ],
+    "policy_related": []
+  }
+}

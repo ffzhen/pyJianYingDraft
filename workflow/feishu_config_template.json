@@ -1,0 +1,60 @@
+{
+  "api_config": {
+    "app_id": "cli_a819ce1681b8d00b",
+    "app_secret": "Jz3iV94njn7RGpFG13cjFbosgMm3bmii",
+    "app_token": "UCG5bzcqNa3v9Ls21XIcgsh7nqf"
+  },
+  "tables": {
+    "content_table": {
+      "table_id": "tblOdWMSBhBIiJfE",
+      "field_mapping": {
+        "title": "仿写标题",
+        "content": "仿写文案",
+        "digital_no": "数字人编号",
+        "voice_id": "声音ID", 
+        "project_name": "项目名称",
+        "account": "关联账号"
+      },
+      "filter_condition": {
+        "conjunction": "and",
+        "conditions": [
+          {
+            "field_name": "状态",
+            "operator": "is",
+            "value": "视频草稿生成"
+          }
+        ]
+      }
+    },
+    "account_table": {
+      "table_id": "tblgDODlgSC83Mba",
+      "account_field": "账号",
+      "name_field": "名称"
+    },
+    "voice_table": {
+      "table_id": "tblLZlJEEtoQWd77",
+      "account_field": "关联账号",
+      "voice_id_field": "音色ID"
+    },
+    "digital_human_table": {
+      "table_id": "tbl6TzBwl2I9vSEL",
+      "account_field": "关联账号",
+      "digital_no_field": "数字人编号"
+    }
+  },
+  "workflow_config": {
+    "max_workers": 2,
+    "background_music_path": "华尔兹.mp3",
+    "background_music_volume": 0.3,
+    "doubao_token": "adac0afb-5fd4-4c66-badb-370a7ff42df5",
+    "doubao_model": "ep-m-20250902010446-mlwmf",
+    "draft_folder_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft",
+    "coze_config": {
+      "token": "pat_gTpRj94iJ22c66yAYIVB8QPTjOm9V0STxvakT8OTZoV5Bb4GTkEBEXuEcdcJARId",
+      "workflow_id": "7545326358185525248"
+    },
+    "max_coze_concurrent": 16,
+    "max_synthesis_workers": 4,
+    "poll_interval": 30
+  }
+}

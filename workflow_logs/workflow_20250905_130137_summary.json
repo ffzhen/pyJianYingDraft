@@ -1,0 +1,30 @@
+{
+  "project_info": {
+    "project_name": "audio_transcription_demo",
+    "execution_time": "2025-09-05 13:01:43",
+    "duration_seconds": 6.2,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\audio_transcription_demo\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905122139001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905122805001.mp4",
+    "material_video_url": "N/A",
+    "title": "买房该听他人意见还是顺从己心",
+    "background_music_path": "d:\\code\\pyJianYingDraft\\workflow\\component\\..\\..\\华尔兹.mp3",
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 12.97,
+    "project_duration": 12.97,
+    "subtitles_count": 0,
+    "original_subtitles_count": 10
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  }
+}

@@ -1,0 +1,57 @@
+{
+  "project_info": {
+    "project_name": "查_买房子该怎么买，一定要牢记_20250905_011312_20250905_011643",
+    "execution_time": "2025-09-05 01:16:49",
+    "duration_seconds": 6.31,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_买房子该怎么买，一定要牢记_20250905_011312_20250905_011643\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905010949001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905011635001.mp4",
+    "material_video_url": "N/A",
+    "title": "买房选贵地低价房还是便宜地高价房？",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 14.56,
+    "project_duration": 14.56,
+    "subtitles_count": 13,
+    "original_subtitles_count": 13
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 10,
+    "keywords_list": [
+      "卖房子",
+      "买房子",
+      "过来人",
+      "永远记住",
+      "现在",
+      "含义",
+      "最贵地方",
+      "最便宜房",
+      "最便宜地",
+      "最贵房子"
+    ],
+    "high_value_keywords": [
+      "卖房子",
+      "买房子",
+      "过来人",
+      "永远记住",
+      "最贵地方",
+      "最便宜房",
+      "最便宜地",
+      "最贵房子"
+    ],
+    "wealth_related": [],
+    "policy_related": []
+  }
+}

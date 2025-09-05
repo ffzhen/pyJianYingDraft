@@ -1,0 +1,80 @@
+{
+  "project_info": {
+    "project_name": "查_今年买房的人到底图什么？_20250905_122459_20250905_123533",
+    "execution_time": "2025-09-05 12:35:48",
+    "duration_seconds": 14.41,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_今年买房的人到底图什么？_20250905_122459_20250905_123533\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905122205001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905123459001.mp4",
+    "material_video_url": "N/A",
+    "title": "明知买房会跌仍买是否明智选择",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 64.81,
+    "project_duration": 64.81,
+    "subtitles_count": 54,
+    "original_subtitles_count": 54
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 31,
+    "keywords_list": [
+      "居住体验",
+      "经济周期",
+      "人无再少年",
+      "当下置换",
+      "租房划算",
+      "买房划算",
+      "保障房",
+      "窗口期",
+      "原生家庭",
+      "当下",
+      "今年",
+      "现在",
+      "网友",
+      "动容",
+      "回答",
+      "买房",
+      "租房",
+      "经济",
+      "周期",
+      "置换",
+      "孩子",
+      "父母",
+      "大学",
+      "日子",
+      "意义",
+      "选择",
+      "帖子",
+      "标准",
+      "活法",
+      "预算",
+      "老房子"
+    ],
+    "high_value_keywords": [
+      "居住体验",
+      "经济周期",
+      "人无再少年",
+      "当下置换",
+      "租房划算",
+      "买房划算",
+      "保障房",
+      "窗口期",
+      "原生家庭",
+      "老房子"
+    ],
+    "wealth_related": [],
+    "policy_related": []
+  }
+}

@@ -1,0 +1,90 @@
+{
+  "project_info": {
+    "project_name": "手里有房的_要恭喜你了_特别是手里多套房_20250904_224152",
+    "execution_time": "2025-09-04 22:42:09",
+    "duration_seconds": 17.35,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\手里有房的_要恭喜你了_特别是手里多套房_20250904_224152\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904222902001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224128001.mp4",
+    "material_video_url": "N/A",
+    "title": "手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了",
+    "background_music_path": "华尔兹.mp3",
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 56.62,
+    "project_duration": 56.62,
+    "subtitles_count": 39,
+    "original_subtitles_count": 39
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 29,
+    "keywords_list": [
+      "以旧换新",
+      "赚钱机会",
+      "老破小红利",
+      "全国范围",
+      "市场评估",
+      "楼市主旋律",
+      "手里有房",
+      "房龄15 - 30年",
+      "旧房政府收",
+      "新房直接换",
+      "最近3年",
+      "每平米28000",
+      "每平米2万",
+      "将近200个",
+      "房票换房",
+      "未来三年",
+      "老房子",
+      "好机会",
+      "一线二线",
+      "县城",
+      "房龄",
+      "高价",
+      "现金",
+      "房票",
+      "楼市",
+      "试点",
+      "收房",
+      "换房",
+      "划算"
+    ],
+    "high_value_keywords": [
+      "以旧换新",
+      "赚钱机会",
+      "老破小红利",
+      "全国范围",
+      "市场评估",
+      "楼市主旋律",
+      "手里有房",
+      "房龄15 - 30年",
+      "旧房政府收",
+      "新房直接换",
+      "最近3年",
+      "每平米28000",
+      "每平米2万",
+      "将近200个",
+      "房票换房",
+      "未来三年",
+      "老房子",
+      "好机会",
+      "一线二线"
+    ],
+    "wealth_related": [
+      "赚钱机会",
+      "每平米2万"
+    ],
+    "policy_related": []
+  }
+}

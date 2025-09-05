@@ -1,47 +1,47 @@
 [
   {
-    "task_id": "task_002",
-    "title": "美貌对穷人而言真的是灾难吗",
-    "status": "success",
-    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\beauty_and_poverty_20250903_231754\\draft_content.json",
-    "duration": 252.327415,
-    "start_time": "2025-09-03 23:13:53",
-    "end_time": "2025-09-03 23:18:05"
-  },
-  {
     "task_id": "task_001",
     "title": "未来中国可能出现的九大变化",
     "status": "success",
-    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\future_china_changes_20250903_231954\\draft_content.json",
-    "duration": 382.511363,
-    "start_time": "2025-09-03 23:13:53",
-    "end_time": "2025-09-03 23:20:16"
+    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\未来九大现象真的都能成为现实吗_20250903_233633\\draft_content.json",
+    "duration": 327.235602,
+    "start_time": "2025-09-03 23:31:32",
+    "end_time": "2025-09-03 23:36:59"
   },
   {
     "task_id": "task_003",
     "title": "人工智能时代的就业挑战",
     "status": "success",
-    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\ai_employment_challenge_20250903_232106\\draft_content.json",
-    "duration": 190.98507,
-    "start_time": "2025-09-03 23:18:05",
-    "end_time": "2025-09-03 23:21:16"
+    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\AI时代如何保持竞争力与工作价值_20250903_234000\\draft_content.json",
+    "duration": 192.657151,
+    "start_time": "2025-09-03 23:36:59",
+    "end_time": "2025-09-03 23:40:12"
   },
   {
     "task_id": "task_006",
     "title": "做生意就不要对低端客户过度的服务",
     "status": "success",
-    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\business_customer_strategy_20250903_232416\\draft_content.json",
-    "duration": 261.195523,
-    "start_time": "2025-09-03 23:20:16",
-    "end_time": "2025-09-03 23:24:37"
+    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\做生意该迎合低端客户吗_20250903_234513\\draft_content.json",
+    "duration": 322.942215,
+    "start_time": "2025-09-03 23:40:12",
+    "end_time": "2025-09-03 23:45:34"
   },
   {
     "task_id": "task_007",
     "title": "赚钱最快的方式就是做一个聪明的二道贩子",
     "status": "success",
-    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\smart_middleman_business_20250903_232618\\draft_content.json",
-    "duration": 324.096812,
-    "start_time": "2025-09-03 23:21:16",
-    "end_time": "2025-09-03 23:26:41"
+    "result": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\普通人做二道贩子赚钱是否正当_20250903_235035\\draft_content.json",
+    "duration": 321.790522,
+    "start_time": "2025-09-03 23:45:34",
+    "end_time": "2025-09-03 23:50:56"
+  },
+  {
+    "task_id": "task_002",
+    "title": "美貌对穷人而言真的是灾难吗",
+    "status": "failed",
+    "result": null,
+    "duration": 1812.832859,
+    "start_time": "2025-09-03 23:31:32",
+    "end_time": "2025-09-04 00:01:44"
   }
 ]

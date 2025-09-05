@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# -*- coding: utf-8 -*-
 """
 火山引擎语音识别集成
 使用火山引擎ASR接口替代Whisper进行音频转录
@@ -62,8 +63,6 @@ class VolcengineASR:
                     'Authorization': f'Bearer; {self.access_token}'
                 }
             )
-            
-            print(f"[INFO] 提交响应: {response.text}")
             
             if response.status_code == 200:
                 result = response.json()
@@ -283,25 +282,25 @@ class VolcengineASR:
         
         return cleaned
     
-    def extract_keywords_with_ai(self, text: str, max_keywords: int = 10) -> List[str]:
-        """使用AI提取关键词
+    def extract_keywords_with_ai(self, text: str, max_keywords: int = None) -> List[str]:
+        """使用AI智能提取关键词，优化用户注意力和留存
         
         Args:
             text: 输入文本
-            max_keywords: 最大关键词数量
+            max_keywords: 最大关键词数量（已优化为无限制，保留参数向后兼容）
             
         Returns:
-            关键词列表
+            关键词列表（优化后无数量限制，基于内容质量动态提取）
         """
-        print(f"[INFO] 使用AI提取关键词: {text[:50]}...")
+        print(f"[INFO] 使用AI智能提取关键词（无限制模式）: {text[:50]}...")
         
         try:
             # 检查豆包API配置
             if not self.doubao_token:
-                print("⚠️ 未配置豆包API token，使用本地算法")
+                print("⚠️ 未配置豆包API token，使用本地智能算法")
                 return self._fallback_keyword_extraction(text, max_keywords)
             
-            # 豆包API进行关键词提取
+            # 豆包API进行智能关键词提取（用户注意力优化版本）
             response = requests.post(
                 'https://ark.cn-beijing.volces.com/api/v3/chat/completions',
                 headers={
@@ -313,15 +312,15 @@ class VolcengineASR:
                     "messages": [
                         {
                             "role": "system",
-                            "content": f"你是一个专业的关键词提取专家。请从给定的文本中提取最重要的{max_keywords}个关键词，用于视频字幕高亮显示。\n\n要求：\n1. 提取有意义的词汇，如名词、动词、形容词\n2. 避免提取助词、介词、连词等功能词\n3. 避免提取不完整的词组片段\n4. 关键词长度在2-4个字之间\n5. 优先提取核心概念和重要动作\n6. 只返回关键词列表，用逗号分隔，不要其他说明文字\n\n示例：\n输入：'年轻人要学会享受生活，在经济条件允许的情况下适当吃喝玩乐'\n输出：年轻,享受,生活,经济条件,吃喝玩乐"
+                            "content": "你是一个专业的视频内容优化专家，专注于通过关键词高亮提升用户注意力和视频留存。请从给定文本中智能提取所有有价值的关键词。\n\n核心策略（用户注意力最大化）：\n1. 【数量无限制】提取所有有意义的词汇，不设数量上限\n2. 【高频吸引词优先】重点标记能引起用户情感共鸣的词汇\n3. 【多层次覆盖】同时提取：核心概念词、情感触发词、行动导向词、数字金额词\n4. 【用户痛点词汇】特别关注：钱、赚钱、暴富、财富、收入、投资、机会等\n5. 【情绪激发词汇】包含：震惊、惊人、秘密、内幕、真相、爆料等\n6. 【时间紧迫词汇】如：马上、立即、现在、今年、未来、趋势等\n7. 【权威背书词汇】如：专家、官方、政策、国家、央行等\n\n输出要求：\n- 只返回关键词，用逗号分隔\n- 按重要性排序，优先级：情感触发>核心概念>数量词汇>一般名词\n- 长度2-6个字，优先4字成语和专业术语\n- 确保每个词都能抓住用户眼球\n\n示例：\n输入：'年轻人如何在经济不景气时代实现财富自由，专家建议这三个赚钱机会不容错过'\n输出：财富自由,赚钱机会,经济不景气,年轻人,专家建议,不容错过,实现,财富,机会,赚钱,经济,时代,建议,年轻,自由"
                         },
                         {
                             "role": "user",
-                            "content": f"请从以下文本中提取关键词：{text}"
+                            "content": f"请智能提取以下文本的所有有价值关键词：{text}"
                         }
                     ],
-                    "max_tokens": 200,
-                    "temperature": 0.3
+                    "max_tokens": 500,  # 增加token限制以支持更多关键词
+                    "temperature": 0.1  # 降低温度提高一致性
                 }
             )
             
@@ -329,12 +328,19 @@ class VolcengineASR:
                 result = response.json()
                 content = result.get('choices', [{}])[0].get('message', {}).get('content', '')
                 
-                # 解析关键词
-                keywords = [kw.strip() for kw in content.split(',') if kw.strip()]
-                keywords = keywords[:max_keywords]  # 限制数量
+                # 解析关键词（无数量限制）
+                keywords = [kw.strip() for kw in content.split(',') if kw.strip() and len(kw.strip()) >= 2]
                 
-                print(f"[OK] AI提取关键词: {keywords}")
-                return keywords
+                # 去重但保持顺序
+                seen = set()
+                unique_keywords = []
+                for kw in keywords:
+                    if kw not in seen and kw:
+                        seen.add(kw)
+                        unique_keywords.append(kw)
+                
+                print(f"[OK] AI智能提取关键词（{len(unique_keywords)}个）: {unique_keywords}")
+                return unique_keywords
             else:
                 print(f"[ERROR] AI关键词提取失败: {response.status_code}, {response.text}")
                 print("[INFO] 使用本地智能算法作为备用")
@@ -345,17 +351,17 @@ class VolcengineASR:
             print("[INFO] 使用本地智能算法作为备用")
             return self._fallback_keyword_extraction(text, max_keywords)
     
-    def _fallback_keyword_extraction(self, text: str, max_keywords: int = 10) -> List[str]:
-        """备用关键词提取方法（改进的词频统计 + 规则过滤）
+    def _fallback_keyword_extraction(self, text: str, max_keywords: int = None) -> List[str]:
+        """备用关键词提取方法（智能无限制版本，用户注意力优化）
         
         Args:
             text: 输入文本
-            max_keywords: 最大关键词数量
+            max_keywords: 保留参数以向后兼容（实际不限制数量）
             
         Returns:
-            关键词列表
+            关键词列表（基于内容价值动态提取，无数量限制）
         """
-        print("[INFO] 使用备用关键词提取方法（智能词频统计）")
+        print("[INFO] 使用备用关键词提取方法（智能无限制版本）")
         
         import re
         from collections import Counter
@@ -363,95 +369,135 @@ class VolcengineASR:
         # 移除标点符号，只保留中文和英文
         cleaned_text = re.sub(r'[^\u4e00-\u9fff\w\s]', '', text)
         
-        # 预定义的常见有意义词汇模式
-        meaningful_patterns = [
-            # 4字词汇（完整概念）
-            r'(经济条件|享受生活|吃喝玩乐|科技发展|人工智能|工作方式|社会进步|无限可能)',
-            # 3字词汇
-            r'(年轻人|改变|发展|进步|未来|触动|退休|消费|领域|应用|生活|变化)',
-            # 2字词汇
-            r'(年轻|享受|科技|智能|工作|社会|可能|触动|退休|消费|领域|应用|生活|变化|发展|进步|未来)'
+        # 大幅扩展的高价值词汇模式（用户注意力优化）
+        high_value_patterns = [
+            # 财富相关（用户痛点）- 最高优先级
+            r'(千万富翁|财富自由|暴富|赚钱|投资理财|经济条件|收入|金钱|资产|理财|投资|股票|房产|创业|商机)',
+            
+            # 情感触发词（吸引注意力）
+            r'(震惊|惊人|秘密|内幕|真相|爆料|揭秘|独家|首次|史上|空前|绝无仅有|前所未有|重磅|突破性)',
+            
+            # 时间紧迫性（制造焦虑感）
+            r'(马上|立即|现在|今年|明年|未来|即将|正在|快速|迅速|急需|紧急|限时|倒计时|最后机会)',
+            
+            # 权威背书（增加可信度）
+            r'(专家|权威|官方|政府|国家|央行|政策|法律|规定|研究|报告|数据|调查|统计|科学|学者)',
+            
+            # 行业热点（抓住趋势）
+            r'(人工智能|科技发展|互联网|大数据|区块链|新能源|房地产|教育|医疗|养老|消费升级)',
+            
+            # 社会热点（引起共鸣）
+            r'(年轻人|中年人|老年人|上班族|学生|家长|城市|农村|社会|民生|就业|教育|医疗|养老)',
+            
+            # 数字金额（具体化）
+            r'(一千万|千万|百万|十万|万元|元|亿|千亿|万亿|倍|百分|折扣|优惠|免费|补贴|奖励)',
+            
+            # 动作导向词（引导行为）
+            r'(学会|掌握|获得|实现|达到|提升|改善|优化|解决|克服|避免|防范|抓住|把握|选择)',
+            
+            # 对比强调（突出重要性）
+            r'(最好|最佳|最优|顶级|一流|高端|低端|普通|平均|标准|特殊|独特|唯一|稀有|珍贵)',
+            
+            # 问题痛点（引起共鸣）
+            r'(问题|困难|挑战|危机|风险|陷阱|误区|盲区|漏洞|缺陷|不足|缺点|弊端|隐患)',
+            
+            # 解决方案（提供价值）
+            r'(方法|技巧|秘诀|策略|方案|建议|指导|教程|攻略|宝典|手册|指南|经验|心得)',
+            
+            # 4字成语和固定搭配
+            r'(拆迁改造|货币化安置|城中村|老旧小区|多拆少建|拆小建大|改善型|舒适型|住房结构|内需|经济|时代红利)',
+            
+            # 3字重要词汇
+            r'(拆迁户|补偿款|库存|供应|品质|升级|刚需|规划|致富|守住|财富|暴富|转眼|归零|政策|方向)',
+            
+            # 通用2字词汇
+            r'(拆迁|改造|安置|补偿|现金|发放|获得|成为|关键|重要|变化|不同|严控|推动|激活|带动|理性|把握)'
         ]
         
         candidate_words = []
         
-        # 首先使用预定义模式提取
-        for pattern in meaningful_patterns:
+        # 使用高价值模式提取（按优先级）
+        for pattern in high_value_patterns:
             matches = re.findall(pattern, cleaned_text)
             candidate_words.extend(matches)
         
-        # 然后使用通用模式补充
-        # 优先提取较长的连续中文词汇
-        general_words = re.findall(r'[\u4e00-\u9fff]{2,4}', cleaned_text)
+        # 补充通用中文词汇（2-6字）
+        general_words = re.findall(r'[\u4e00-\u9fff]{2,6}', cleaned_text)
         candidate_words.extend(general_words)
         
-        # 扩展停用词列表，过滤无意义词汇
+        # 大幅缩减停用词列表，更多词汇参与高亮
         stop_words = {
-            # 代词
-            '我们', '这个', '那个', '他们', '她们', '它们', '自己', '大家',
-            # 副词和连词
-            '可以', '应该', '非常', '比较', '还是', '就是', '这样', '那样', '因为', '所以', '但是', '然后', '如果',
-            # 介词和助词
-            '在于', '关于', '对于', '由于', '通过', '根据', '按照', '为了', '来说', '而且', '不过', '虽然',
-            # 时间词（常见但不太重要）
-            '时候', '现在', '以前', '以后', '今天', '明天', '昨天', '刚才', '马上', '立即',
-            # 程度词
-            '特别', '尤其', '更加', '最后', '首先', '其次', '另外', '同时',
-            # 其他常见但无意义的词
-            '一些', '一个', '这些', '那些', '什么', '怎么', '为什么', '哪里'
+            # 只过滤最基础的无意义词汇
+            '这个', '那个', '这样', '那样', '因为', '所以', '但是', '然后', '如果', 
+            '的话', '就是', '还是', '不过', '虽然', '一些', '一个', '什么', '怎么', 
+            '为什么', '哪里', '时候', '现在', '以前', '以后'
         }
         
-        # 过滤停用词和过短词汇
+        # 过滤处理
         filtered_words = []
         for word in candidate_words:
             if (word not in stop_words and 
                 len(word) >= 2 and 
-                not re.match(r'^[\u4e00-\u9fff]{1}[的了着过]$', word) and  # 过滤如"做的"、"说了"等
-                not re.match(r'^[一二三四五六七八九十]+$', word)):  # 过滤纯数字
+                not re.match(r'^[\u4e00-\u9fff]{1}[的了着过在]$', word)):  # 过滤助词结尾
                 filtered_words.append(word)
         
-        # 统计词频，优先选择较长的词汇
+        # 统计词频，优先长词和高频词
         word_freq = Counter(filtered_words)
         
-        # 按词频和长度排序（长度越长权重越高）
+        # 按重要性排序：词频 × 长度权重
         sorted_words = sorted(word_freq.items(), 
-                            key=lambda x: (x[1], len(x[0])), 
+                            key=lambda x: (x[1] * (1 + len(x[0]) * 0.2)), 
                             reverse=True)
         
-        # 预定义的高质量关键词（优先级最高）
-        priority_keywords = [
-            '经济条件', '享受生活', '吃喝玩乐', '科技发展', '人工智能', '工作方式', '社会进步',
-            '年轻', '触动', '退休', '消费', '改变', '发展', '进步', '未来', '科技', '智能',
-            '享受', '生活', '领域', '应用', '变化'
+        # 预定义的超高价值关键词（必须高亮）
+        must_highlight_keywords = [
+            # 财富相关
+            '千万富翁', '财富自由', '拆迁暴富', '补偿款', '数百万元', '上千万元',
+            # 政策变化
+            '货币化安置', '城中村', '老旧小区', '多拆少建', '拆小建大',
+            # 投资理财
+            '稳健配置', '改善住房', '盲目消费', '投机',
+            # 时间敏感
+            '二零二五年', '三十个城市', '三百个', '一夜暴富', '转眼归零',
+            # 重要概念
+            '拆迁改造', '全面推进', '重新提倡', '时代红利', '政策方向'
         ]
         
-        # 先提取预定义的高质量关键词
+        # 构建最终关键词列表
         final_keywords = []
-        for priority_word in priority_keywords:
-            if priority_word in text and priority_word not in final_keywords:
-                final_keywords.append(priority_word)
-                if len(final_keywords) >= max_keywords:
-                    break
         
-        # 如果还需要更多关键词，从频率统计中补充
-        if len(final_keywords) < max_keywords:
-            for word, freq in sorted_words:
-                if word not in final_keywords:
-                    # 检查是否与已选择的关键词重复
-                    is_duplicate = False
-                    for existing in final_keywords:
-                        if (word in existing or existing in word) and word != existing:
-                            is_duplicate = True
-                            break
-                    
-                    if not is_duplicate:
-                        final_keywords.append(word)
-                    
-                    if len(final_keywords) >= max_keywords:
+        # 第一优先级：必须高亮的超高价值词
+        for must_word in must_highlight_keywords:
+            if must_word in text and must_word not in final_keywords:
+                final_keywords.append(must_word)
+        
+        # 第二优先级：从频率统计中选择
+        for word, freq in sorted_words:
+            if word not in final_keywords:
+                # 检查重复但允许更多变体
+                is_duplicate = False
+                for existing in final_keywords:
+                    if (len(word) <= 2 and len(existing) <= 2 and 
+                        (word == existing or word in existing or existing in word)):
+                        is_duplicate = True
                         break
+                
+                if not is_duplicate:
+                    final_keywords.append(word)
         
-        print(f"[INFO] 备用方法提取关键词: {final_keywords}")
-        return final_keywords
+        # 按文本出现顺序重新排列（保持阅读自然性）
+        text_order_keywords = []
+        for word in final_keywords:
+            if word in text:
+                pos = text.find(word)
+                text_order_keywords.append((pos, word))
+        
+        # 排序并提取词汇
+        text_order_keywords.sort(key=lambda x: x[0])
+        final_ordered_keywords = [word for pos, word in text_order_keywords]
+        
+        print(f"[INFO] 智能无限制提取关键词（{len(final_ordered_keywords)}个）: {final_ordered_keywords}")
+        return final_ordered_keywords
 
 
 def test_volcengine_asr():

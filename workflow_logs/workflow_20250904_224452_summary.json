@@ -1,0 +1,106 @@
+{
+  "project_info": {
+    "project_name": "中国还会大规模拆迁吗__20250904_224452",
+    "execution_time": "2025-09-04 22:45:14",
+    "duration_seconds": 21.22,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\中国还会大规模拆迁吗__20250904_224452\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904222840001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224400001.mp4",
+    "material_video_url": "N/A",
+    "title": "中国还会大规模拆迁吗？",
+    "background_music_path": "华尔兹.mp3",
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 79.29,
+    "project_duration": 79.29,
+    "subtitles_count": 50,
+    "original_subtitles_count": 50
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 30,
+    "keywords_list": [
+      "货币化安置",
+      "财富留存",
+      "居住品质",
+      "城市更新",
+      "住房结构",
+      "时代红利",
+      "拆迁改造",
+      "现金补偿",
+      "千万富翁",
+      "改善型需求",
+      "大规模拆迁",
+      "2025年",
+      "30个城市",
+      "300个",
+      "数百万元",
+      "上千万元",
+      "补偿款",
+      "拆迁户",
+      "老破小",
+      "库存偏高",
+      "刚需",
+      "政策",
+      "国家",
+      "机会",
+      "赚钱",
+      "财富",
+      "暴富",
+      "现在",
+      "未来",
+      "趋势"
+    ],
+    "high_value_keywords": [
+      "货币化安置",
+      "财富留存",
+      "居住品质",
+      "城市更新",
+      "住房结构",
+      "时代红利",
+      "拆迁改造",
+      "现金补偿",
+      "千万富翁",
+      "改善型需求",
+      "大规模拆迁",
+      "2025年",
+      "30个城市",
+      "300个",
+      "数百万元",
+      "上千万元",
+      "补偿款",
+      "拆迁户",
+      "老破小",
+      "库存偏高"
+    ],
+    "wealth_related": [
+      "财富留存",
+      "现金补偿",
+      "千万富翁",
+      "数百万元",
+      "上千万元",
+      "补偿款",
+      "赚钱",
+      "财富",
+      "暴富"
+    ],
+    "policy_related": [
+      "货币化安置",
+      "拆迁改造",
+      "大规模拆迁",
+      "拆迁户",
+      "政策",
+      "国家"
+    ]
+  }
+}

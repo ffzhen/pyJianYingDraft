@@ -48,7 +48,7 @@ class CozeVideoWorkflow:
             draft_folder_path: 剪映草稿文件夹路径
             project_name: 项目名称（可选，如果不提供将使用title+时间戳生成）
         """
-        self.bearer_token = "pat_n4y1hGj8jOusHQ8jHm1CPkPNBpP96jHGGoz8DhYQcJbkK9Q7JNjMGxOi4xuCof1T"
+        self.bearer_token = "cztei_hXqXzOIBKS6Pch9E75ZkGzF4uELK37JliSi65Ypb1Mjr8vfcBqWAC99o0zQI24Y9F"
         self.workflow_id = "7545326358185525248"
         self.base_url = "https://api.coze.cn/v1/workflow"
         
@@ -219,8 +219,19 @@ class CozeVideoWorkflow:
                                 return execution_record
                         elif execute_status == "Failed":
                             error_code = execution_record.get("error_code", "未知错误")
+                            error_message = execution_record.get("error_message", "")
                             log_with_time(f"❌ 工作流执行失败: {error_code}", self.start_time)
-                            return None
+                            log_with_time(f"❌ 错误信息: {error_message}", self.start_time)
+                            
+                            # 检查特定错误代码，立即终止轮询
+                            if error_code in ["720701002", "720701001"]:  # 超时相关错误
+                                log_with_time("🚨 检测到网络超时错误，立即终止任务", self.start_time)
+                                return None
+                            else:
+                                log_with_time("🔄 等待重试...", self.start_time)
+                                if attempt < max_attempts - 1:
+                                    time.sleep(interval)
+                                continue
                         elif execute_status == "Running":
                             log_with_time("📋 工作流仍在运行中...", self.start_time)
                         else:
@@ -228,13 +239,26 @@ class CozeVideoWorkflow:
                     else:
                         log_with_time("📋 暂无执行记录...", self.start_time)
                 else:
-                    log_with_time(f"❌ 轮询出错: {result.get('msg')}", self.start_time)
+                    error_msg = result.get('msg', '')
+                    log_with_time(f"❌ 轮询出错: {error_msg}", self.start_time)
+                    
+                    # 如果是严重错误，立即终止
+                    if any(keyword in error_msg.lower() for keyword in ['timeout', 'timed out', 'access plugin', 'server error']):
+                        log_with_time("🚨 检测到严重错误，立即终止轮询", self.start_time)
+                        return None
                 
                 if attempt < max_attempts - 1:
                     time.sleep(interval)
                     
             except requests.exceptions.RequestException as e:
+                error_str = str(e).lower()
                 log_with_time(f"❌ 轮询请求失败: {e}", self.start_time)
+                
+                # 如果是网络超时或连接错误，立即终止
+                if any(keyword in error_str for keyword in ['timeout', 'timed out', 'connection', 'network']):
+                    log_with_time("🚨 检测到网络错误，立即终止轮询", self.start_time)
+                    return None
+                
                 if attempt < max_attempts - 1:
                     time.sleep(interval)
         
@@ -278,7 +302,7 @@ class CozeVideoWorkflow:
             video_inputs = {
                 # 必需参数
                 'audio_url': actual_data.get('audioUrl', ''),
-                'title': title,  # 使用任务配置中的标题
+                'title': actual_data.get('title', ''),  # 使用任务配置中的标题
                 'content': actual_data.get('content', ''),
                 'digital_video_url': actual_data.get('videoUrl', ''),  # 修正参数名映射
                 'recordId': actual_data.get('recordId', ''),
@@ -327,6 +351,14 @@ class CozeVideoWorkflow:
         """
         log_with_time("🎯 启动完整Coze视频工作流", self.start_time)
         log_with_time("=" * 60, self.start_time)
+        
+        # 保存任务配置
+        self.task_config = {
+            "content": content,
+            "digital_no": digital_no,
+            "voice_id": voice_id,
+            "title": title or "AI视频生成"
+        }
         
         # 1. 调用Coze工作流
         log_with_time("\n📞 步骤1: 调用Coze工作流API...", self.start_time)

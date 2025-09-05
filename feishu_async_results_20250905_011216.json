@@ -1,0 +1,63 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "手里有房的朋友，尤其是住老房子的，听好了——你的好机会来了！\n不管你在一线、二线，还是县城，只要你手里有房，特别是房龄在十五到三十年之间的“老破小”，这波红利，你真的不能错过。\n因为全国范围的“以旧换新”，已经正式启动！\n什么叫以旧换新？很简单——你的旧房，政府来收；你的新房，直接换！\n但注意，不是按你心里的高价收，而是按最近三年的市场评估价。你原来以为能卖到每平米二万八，现在可能只给二万。而且，还不是给现金，是给“房票”。\n目前，全国将近二百个城市已经试点。房票换房，以购带建——这就是未来三年楼市的主旋律。\n那问题来了：收，还是不收？换，还是不换？\n房票怎么用？亏不亏？怎么换才最划算？",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了",
+      "project_name": "查_手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了_20250905_011216",
+      "status": "failed",
+      "execute_id": null,
+      "submit_time": null,
+      "complete_time": null,
+      "coze_result": null,
+      "video_path": null,
+      "error_message": "Coze提交失败: 401 Client Error: Unauthorized for url: https://api.coze.cn/v1/workflow/run",
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_2": {
+      "task_id": "task_2",
+      "content": "中国以后还会有大规模拆迁吗？答案是：会。\n从二零二五年开始，国家将把拆迁改造范围从三十个城市扩大到三百个，全面推进城中村和老旧小区更新，并重新提倡“货币化安置”——也就是直接发放现金补偿。\n这意味着，一批拆迁户将获得数百万元甚至上千万元的补偿款，确实有可能成为千万富翁。但关键在于钱怎么用：用于改善住房或稳健配置，财富才能留存；若盲目消费或投机，也可能“一夜暴富、转眼归零”。\n与过去不同，这一轮改造有两个重要变化：\n一是“多拆少建”。当前全国房产库存偏高，拆旧不等于大建，而是严控新增供应。\n二是“拆小建大”。拆除的主要是老破小，新建的则是大面积、改善型、舒适型住宅，推动居住品质升级。\n目前小户型库存充足，能满足刚需，政策重心已转向支持改善型需求。\n这一轮不是简单拆迁，而是通过城市更新优化住房结构、激活内需、带动经济。\n面对这笔补偿款，理性规划比一时致富更重要。\n理解政策方向，才能真正把握时代红利。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "中国还会大规模拆迁吗？",
+      "project_name": "查_中国还会大规模拆迁吗？_20250905_011216",
+      "status": "failed",
+      "execute_id": null,
+      "submit_time": null,
+      "complete_time": null,
+      "coze_result": null,
+      "video_path": null,
+      "error_message": "Coze提交失败: 401 Client Error: Unauthorized for url: https://api.coze.cn/v1/workflow/run",
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_3": {
+      "task_id": "task_3",
+      "content": "买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "买房子该怎么买，一定要牢记",
+      "project_name": "查_买房子该怎么买，一定要牢记_20250905_011216",
+      "status": "failed",
+      "execute_id": null,
+      "submit_time": null,
+      "complete_time": null,
+      "coze_result": null,
+      "video_path": null,
+      "error_message": "Coze提交失败: 401 Client Error: Unauthorized for url: https://api.coze.cn/v1/workflow/run",
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 3,
+    "submitted_tasks": 0,
+    "completed_tasks": 0,
+    "failed_tasks": 3,
+    "start_time": "2025-09-05T01:12:16.056866",
+    "end_time": "2025-09-05T01:12:16.291865"
+  }
+}

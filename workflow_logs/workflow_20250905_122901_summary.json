@@ -1,0 +1,63 @@
+{
+  "project_info": {
+    "project_name": "查_这个环境，都是一把辛酸泪呀_20250905_122459_20250905_122901",
+    "execution_time": "2025-09-05 12:29:07",
+    "duration_seconds": 6.5,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_这个环境，都是一把辛酸泪呀_20250905_122459_20250905_122901\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905122135001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905122837001.mp4",
+    "material_video_url": "N/A",
+    "title": "房东卖房背后隐藏多少心酸真相",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 16.15,
+    "project_duration": 16.15,
+    "subtitles_count": 8,
+    "original_subtitles_count": 8
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 15,
+    "keywords_list": [
+      "卖房理由",
+      "心酸理由",
+      "孩子考上清北",
+      "不在本地",
+      "出国发展",
+      "房贷还不上",
+      "离婚破产",
+      "房东卖房",
+      "3个理由",
+      "出国",
+      "清北",
+      "离婚",
+      "破产",
+      "房贷",
+      "卖房"
+    ],
+    "high_value_keywords": [
+      "卖房理由",
+      "心酸理由",
+      "孩子考上清北",
+      "不在本地",
+      "出国发展",
+      "房贷还不上",
+      "离婚破产",
+      "房东卖房",
+      "3个理由"
+    ],
+    "wealth_related": [],
+    "policy_related": []
+  }
+}

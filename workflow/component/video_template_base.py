@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 视频模板基类和工厂模式实现
 
@@ -303,9 +304,11 @@ class VideoTemplateBase(ABC):
                 )
                 
                 if i == 0:
-                # 第一个片段淡入已移除
+                    # 第一个片段淡入已移除
+                    pass
                 if current_time + current_duration >= target_duration - 0.1:
-                # 最后一个片段淡出已移除
+                    # 最后一个片段淡出已移除
+                    pass
                 
                 self.script.add_segment(loop_segment, track_name="背景音乐轨道")
                 current_time += current_duration
