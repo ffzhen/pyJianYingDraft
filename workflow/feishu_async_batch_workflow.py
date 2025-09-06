@@ -15,6 +15,7 @@ import json
 import argparse
 from datetime import datetime
 from typing import List, Dict, Any, Optional
+from unittest import result
 
 # 添加项目路径
 sys.path.append(os.path.join(os.path.dirname(__file__), '..'))
@@ -121,7 +122,7 @@ class FeishuAsyncBatchWorkflow:
         print(f"   视频路径: {task.video_path}")
         
         # 更新飞书状态
-        self._update_feishu_status(task, "已完成", task.video_path)
+        self._update_feishu_status(task, "视频草稿生成完成", task.video_path)
     
     def _on_task_failed(self, task: AsyncCozeTask, error: str) -> None:
         """任务失败回调"""
@@ -160,7 +161,8 @@ class FeishuAsyncBatchWorkflow:
         
         for i, task in enumerate(feishu_tasks, 1):
             # 从飞书任务中提取必要字段
-            task_id = task.get('record_id', f'task_{i}')
+            task_id = f'task_{i}'
+            feishu_record_id = task.get('feishu_record_id', '')
             content = task.get('content', '')
             title = task.get('title', f'视频_{i}')
             project_name = task.get('project_name', f'项目_{i}')
@@ -171,6 +173,10 @@ class FeishuAsyncBatchWorkflow:
             if not content:
                 print(f"⚠️ 跳过空内容任务: {task_id}")
                 continue
+                
+            if not feishu_record_id:
+                print(f"⚠️ 跳过无飞书记录ID的任务: {task_id}")
+                continue
             
             coze_task = {
                 'task_id': task_id,
@@ -180,7 +186,7 @@ class FeishuAsyncBatchWorkflow:
                 'digital_no': digital_no,
                 'voice_id': voice_id,
                 'account': account,
-                'record_id': task_id,  # 使用record_id作为飞书记录ID
+                'record_id': feishu_record_id,  # 使用飞书记录ID
                 'original_task': task  # 保留原始任务数据
             }
             
@@ -203,19 +209,29 @@ class FeishuAsyncBatchWorkflow:
             print(f"⚠️ 任务 {task.task_id} 没有记录ID，跳过飞书状态更新")
             return
             
+        print(f"🔄 正在更新飞书状态: 记录ID={task.record_id}, 状态={status}")
+            
         try:
-            # 构建更新字段
+            # 构建更新字段 - 使用配置中的字段映射
+            field_mapping = self.tables_config.get('content_table', {}).get('field_mapping', {})
+            
+            # 尝试使用配置中的字段名，如果没有则使用默认值
+            status_field = field_mapping.get('status', '状态')
+            result_field = field_mapping.get('result ', '返回结果')
+            
             update_fields = {
-                "状态": status
+                status_field: status
             }
             
             # 如果有视频路径，更新视频路径字段
             if video_path:
-                update_fields["视频路径"] = video_path
+                update_fields[result_field] = video_path
                 
             # 如果有错误信息，更新错误信息字段
             if error_message:
-                update_fields["错误信息"] = error_message
+                update_fields[result_field] = error_message
+                
+            print(f"📝 更新字段: {update_fields}")
                 
             # 更新记录
             success = self.feishu_task_source.update_record_fields(task.record_id, update_fields)
@@ -227,6 +243,8 @@ class FeishuAsyncBatchWorkflow:
                 
         except Exception as e:
             print(f"❌ 飞书状态更新异常: {task.task_id} - {e}")
+            import traceback
+            traceback.print_exc()
     
     def process_async_batch(self, 
                            filter_condition: Optional[Dict] = None,

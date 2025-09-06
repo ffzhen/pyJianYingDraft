@@ -13,7 +13,9 @@
         "digital_no": "数字人编号",
         "voice_id": "声音ID", 
         "project_name": "项目名称",
-        "account": "关联账号"
+        "account": "关联账号",
+        "status": "状态",
+        "result ": "返回结果"
       },
       "filter_condition": {
         "conjunction": "and",

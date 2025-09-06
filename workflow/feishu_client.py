@@ -363,6 +363,11 @@ class FeishuVideoTaskSource:
         
         try:
             response = requests.put(url, headers=headers, json=payload)
+            
+            # 打印响应状态码和内容用于调试
+            print(f"[DEBUG] 飞书API响应状态码: {response.status_code}")
+            print(f"[DEBUG] 飞书API响应内容: {response.text}")
+            
             response.raise_for_status()
             
             data = response.json()
@@ -375,6 +380,9 @@ class FeishuVideoTaskSource:
                 
         except requests.RequestException as e:
             print(f"[ERROR] 更新记录字段请求失败: {e}")
+            if hasattr(e, 'response') and e.response is not None:
+                print(f"[ERROR] 响应状态码: {e.response.status_code}")
+                print(f"[ERROR] 响应内容: {e.response.text}")
             return False
     
     def _preload_account_data(self):

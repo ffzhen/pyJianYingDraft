@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_name": "查_悄悄买房，这句话的含义你慢慢就懂了！_20250905_135432_20250905_135733",
+    "execution_time": "2025-09-05 13:57:39",
+    "duration_seconds": 5.51,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_悄悄买房，这句话的含义你慢慢就懂了！_20250905_135432_20250905_135733\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250905135108001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250905135734001.mp4",
+    "material_video_url": "N/A",
+    "title": "买房该听他人意见还是遵从己心",
+    "background_music_path": null,
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 11.94,
+    "project_duration": 11.94,
+    "subtitles_count": 10,
+    "original_subtitles_count": 10
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 7,
+    "keywords_list": [
+      "惊艳所有人",
+      "花自己钱",
+      "买房参考",
+      "真正买房",
+      "每个人",
+      "角度不同",
+      "喜欢就好"
+    ],
+    "high_value_keywords": [
+      "惊艳所有人",
+      "花自己钱",
+      "买房参考",
+      "真正买房",
+      "每个人",
+      "角度不同",
+      "喜欢就好"
+    ],
+    "wealth_related": [
+      "花自己钱"
+    ],
+    "policy_related": []
+  }
+}

@@ -55,7 +55,12 @@
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
-      "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)"
+      "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
+      "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
+      "Read(/D:\\code\\pyJianYingDraft\\workflow\\core/**)",
+      "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
+      "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
+      "Read(/D:\\code\\pyJianYingDraft\\workflow/**)"
     ],
     "deny": [],
     "ask": []

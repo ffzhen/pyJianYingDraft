@@ -1,0 +1,52 @@
+{
+  "project_info": {
+    "project_name": "audio_transcription_demo_elegant",
+    "execution_time": "2025-09-05 13:49:20",
+    "duration_seconds": 6.62,
+    "result_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\audio_transcription_demo_elegant\\draft_content.json"
+  },
+  "input_parameters": {
+    "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
+    "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224537001.mp4",
+    "material_video_url": "N/A",
+    "title": "买房子该怎么买，一定要牢记",
+    "background_music_path": "d:\\code\\pyJianYingDraft\\workflow\\..\\..\\华尔兹.mp3",
+    "volcengine_configured": true,
+    "doubao_configured": true
+  },
+  "processing_results": {
+    "audio_duration": 0,
+    "video_duration": 15.67,
+    "project_duration": 15.67,
+    "subtitles_count": 13,
+    "original_subtitles_count": 13
+  },
+  "technical_details": {
+    "non_destructive_editing": true,
+    "asr_provider": "VolcEngine",
+    "keyword_extraction": "Unlimited AI-Enhanced",
+    "subtitle_alignment": "Perfect MP4 Direct Processing"
+  },
+  "keyword_analysis": {
+    "total_keywords": 9,
+    "keywords_list": [
+      "买贵卖贱",
+      "买贱卖贵",
+      "买房卖房",
+      "过来人",
+      "现在",
+      "含义",
+      "房子",
+      "买房",
+      "卖房"
+    ],
+    "high_value_keywords": [
+      "买贵卖贱",
+      "买贱卖贵",
+      "买房卖房",
+      "过来人"
+    ],
+    "wealth_related": [],
+    "policy_related": []
+  }
+}
