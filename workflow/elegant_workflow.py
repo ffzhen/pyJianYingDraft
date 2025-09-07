@@ -15,13 +15,22 @@ project_root = os.path.join(current_dir, '..')
 sys.path.insert(0, project_root)
 
 import pyJianYingDraft as draft
-from pyJianYingDraft import TrackType
+from pyJianYingDraft import TrackType, FontType
+from typing import Dict, Any, List, Tuple
 
 # 导入新的模块化组件
-from .core import WorkflowContext, WorkflowLogger, WorkflowConfig
-from .core.exceptions import WorkflowError, ValidationError, ProcessingError
-from .managers import DurationManager, TrackManager, MaterialManager
-from .processors import AudioProcessor, VideoProcessor, SubtitleProcessor
+try:
+    # 相对导入（当作为包使用时）
+    from .core import WorkflowContext, WorkflowLogger, WorkflowConfig
+    from .core.exceptions import WorkflowError, ValidationError, ProcessingError
+    from .managers import DurationManager, TrackManager, MaterialManager
+    from .processors import AudioProcessor, VideoProcessor, SubtitleProcessor, PauseProcessor
+except ImportError:
+    # 绝对导入（当直接运行时）
+    from workflow.core import WorkflowContext, WorkflowLogger, WorkflowConfig
+    from workflow.core.exceptions import WorkflowError, ValidationError, ProcessingError
+    from workflow.managers import DurationManager, TrackManager, MaterialManager
+    from workflow.processors import AudioProcessor, VideoProcessor, SubtitleProcessor, PauseProcessor
 
 
 class ElegantVideoWorkflow:
@@ -59,7 +68,7 @@ class ElegantVideoWorkflow:
         
         self.logger.info(f"🏗️ 优雅工作流已初始化 - 项目: {config.project_name}")
         
-    def create_draft(self) -> draft.Script:
+    def create_draft(self) -> Any:
         """创建剪映草稿"""
         try:
             self.context.script = self.draft_folder.create_draft(
@@ -129,20 +138,51 @@ class ElegantVideoWorkflow:
         """应用自然停顿"""
         return self.pause_processor.apply_natural_pauses(asr_result, **kwargs)
     
+    def initialize_asr(self, volcengine_appid: str, volcengine_access_token: str,
+                       doubao_token: str = None, doubao_model: str = "doubao-1-5-pro-32k-250115"):
+        """初始化ASR功能"""
+        self.audio_processor.initialize_asr(volcengine_appid, volcengine_access_token, doubao_token, doubao_model)
+        self.logger.info(f"🔥 火山引擎ASR已在优雅工作流中初始化")
+    
+    def transcribe_audio_and_generate_subtitles(self, audio_url: str) -> List[Dict[str, Any]]:
+        """音频转录并生成字幕"""
+        return self.audio_processor.transcribe_audio(audio_url)
+    
+    def extract_keywords(self, text: str) -> List[str]:
+        """提取关键词"""
+        return self.audio_processor.extract_keywords(text)
+    
+    def add_captions_with_highlights(self, caption_data: List[Dict[str, Any]], **kwargs):
+        """添加带高亮的字幕"""
+        return self.subtitle_processor.add_captions_with_highlights(caption_data, **kwargs)
+    
+    def add_caption_backgrounds(self, caption_data: List[Dict[str, Any]], **kwargs):
+        """添加字幕背景"""
+        return self.subtitle_processor.add_caption_backgrounds(caption_data, **kwargs)
+    
+    def add_three_line_title_subtitle(self, title: str, **kwargs):
+        """添加三行标题字幕"""
+        return self.subtitle_processor.add_three_line_title(title, **kwargs)
+    
     def process_complete_workflow(self, inputs: Dict[str, Any]) -> str:
-        """处理完整工作流
+        """处理完整工作流 - 集成ASR转录、关键词高亮、停顿移除等功能
         
         Args:
             inputs: 输入参数字典，支持的参数：
-                - audio_url: 音频URL
-                - video_url: 主视频URL
+                - audio_url: 音频URL（必需）
                 - digital_human_url: 数字人视频URL
+                - video_url: 主视频URL
                 - background_music_path: 背景音乐路径
                 - background_music_volume: 背景音乐音量(0-1)
                 - title: 标题文本
                 - title_duration: 标题显示时长(秒)
-                - asr_result: ASR识别结果用于生成字幕
-                - apply_pauses: 是否应用自然停顿
+                - volcengine_appid: 火山引擎ASR AppID（必需）
+                - volcengine_access_token: 火山引擎ASR AccessToken（必需）
+                - doubao_token: 豆包API Token（用于关键词提取）
+                - doubao_model: 豆包模型名称
+                - subtitle_delay: 字幕延迟（秒），正值延后，负值提前
+                - subtitle_speed: 字幕速度系数，>1加快，<1减慢
+                - remove_pauses: 是否移除音频停顿
                 - pause_intensity: 停顿强度(0-1)
             
         Returns:
@@ -151,78 +191,184 @@ class ElegantVideoWorkflow:
         start_time = time.time()
         
         try:
-            self.logger.info("🚀 开始处理完整工作流")
+            self.logger.info("🚀 开始处理完整优雅工作流（集成ASR转录、关键词高亮）")
             self.logger.info(f"📋 输入参数: {self._format_inputs_for_log(inputs)}")
+            
+            # 验证必需参数
+            audio_url = inputs.get('audio_url')
+            volcengine_appid = inputs.get('volcengine_appid')
+            volcengine_access_token = inputs.get('volcengine_access_token')
+            
+            if not audio_url:
+                raise WorkflowError("audio_url 是必需参数，用于音频转录")
+            
+            if not volcengine_appid or not volcengine_access_token:
+                raise WorkflowError("必须提供 volcengine_appid 和 volcengine_access_token 参数")
+            
+            # 初始化ASR
+            doubao_token = inputs.get('doubao_token')
+            doubao_model = inputs.get('doubao_model', 'doubao-1-5-pro-32k-250115')
+            
+            self.initialize_asr(volcengine_appid, volcengine_access_token, doubao_token, doubao_model)
             
             # 1. 创建草稿
             self.create_draft()
             
-            # 2. 添加主视频（如果有）
-            video_url = inputs.get('video_url')
-            if video_url:
-                self.logger.info(f"🎬 添加主视频: {video_url}")
-                self.add_video(video_url)
-            
-            # 3. 添加音频（如果有）
-            audio_url = inputs.get('audio_url')
-            if audio_url:
-                self.logger.info(f"🎵 添加音频: {audio_url}")
-                self.add_audio(audio_url)
-            
-            # 4. 添加数字人视频（如果有）
+            # 2. 添加数字人视频（如果有）
             digital_human_url = inputs.get('digital_human_url')
             if digital_human_url:
                 self.logger.info(f"🤖 添加数字人视频: {digital_human_url}")
                 self.add_digital_human_video(digital_human_url)
             
-            # 5. 添加字幕（如果有ASR结果）
-            asr_result = inputs.get('asr_result')
-            if asr_result:
-                self.logger.info(f"📝 添加字幕: {len(asr_result)} 个段落")
-                self.add_subtitle_from_asr(asr_result)
+            # 3. 添加主视频（如果有）
+            video_url = inputs.get('video_url')
+            if video_url:
+                self.logger.info(f"🎬 添加主视频: {video_url}")
+                self.add_video(video_url)
             
-            # 6. 添加标题字幕（如果有）
+            # 4. 进行音频转录生成字幕
+            self.logger.info("🎤 开始音频转录生成字幕")
+            subtitle_objects = self.transcribe_audio_and_generate_subtitles(audio_url)
+            
+            if not subtitle_objects:
+                raise WorkflowError("音频转录失败，无法生成字幕")
+            
+            self.logger.info(f"✅ 音频转录成功，生成 {len(subtitle_objects)} 段字幕")
+            
+            # 5. 调整字幕时间（如果需要）
+            subtitle_delay = inputs.get('subtitle_delay', 0.0)
+            subtitle_speed = inputs.get('subtitle_speed', 1.0)
+            
+            final_subtitles = subtitle_objects
+            if subtitle_delay != 0.0 or subtitle_speed != 1.0:
+                self.logger.info(f"⏰ 调整字幕时间: 延迟{subtitle_delay:.1f}s, 速度{subtitle_speed:.1f}x")
+                final_subtitles = self._adjust_subtitle_timing(final_subtitles, subtitle_delay, subtitle_speed)
+            
+            # 6. 提取关键词用于高亮
+            self.logger.info("🤖 开始AI关键词提取...")
+            all_text = " ".join([sub['text'] for sub in final_subtitles])
+            keywords = self.extract_keywords(all_text)
+            
+            if keywords:
+                self.logger.info(f"✅ AI提取到 {len(keywords)} 个关键词: {keywords}")
+            else:
+                self.logger.warning("⚠️ 未提取到关键词，使用普通字幕")
+            
+            # 7. 添加带关键词高亮的字幕
+            self.logger.info("📝 添加带关键词高亮的字幕")
+            self.add_captions_with_highlights(
+                caption_data=final_subtitles,
+                track_name="内容字幕轨道",
+                position="bottom",
+                keywords=keywords,
+                base_color=(1.0, 1.0, 1.0),  # 白色
+                base_font_size=8.0,  # 8号
+                font_type=draft.FontType.俪金黑,  # 俪金黑
+                highlight_size=10.0,  # 高亮10号
+                highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
+                scale=1.39
+            )
+            
+            # 8. 为字幕添加背景色块
+            self.logger.info("🎨 添加字幕背景")
+            self.add_caption_backgrounds(
+                caption_data=final_subtitles,
+                position="bottom",
+                bottom_transform_y=-0.3,
+                scale=1.39
+            )
+            
+            # 9. 添加标题字幕（如果有）
             title = inputs.get('title')
             if title:
-                title_duration = inputs.get('title_duration', 3.0)
-                self.logger.info(f"🏷️ 添加标题字幕: {title}")
-                self.add_title_subtitle(title, duration=title_duration)
+                title_duration = inputs.get('title_duration', None)  # 使用有效视频时长
+                self.logger.info(f"🏷️ 添加三行标题字幕: {title}")
+                self.add_three_line_title_subtitle(
+                    title=title,
+                    start=0.0,
+                    duration=title_duration,
+                    transform_y=0.72,
+                    line_spacing=4,
+                    highlight_color=(1.0, 0.7529411765, 0.2470588235)  # #ffc03f
+                )
             
-            # 7. 应用自然停顿（如果启用且有ASR结果）
-            if inputs.get('apply_pauses', False) and asr_result:
-                pause_intensity = inputs.get('pause_intensity', 0.5)
-                self.logger.info(f"⏸️ 应用自然停顿，强度: {pause_intensity}")
-                self.apply_natural_pauses(asr_result, pause_intensity=pause_intensity)
-            
-            # 8. 添加背景音乐（如果有）
+            # 10. 添加背景音乐（如果有）
             background_music_path = inputs.get('background_music_path')
             if background_music_path and os.path.exists(background_music_path):
                 volume = inputs.get('background_music_volume', 0.3)
                 self.logger.info(f"🎼 添加背景音乐: {background_music_path}")
                 self.add_background_music(background_music_path, volume=volume)
             
-            # 9. 字幕时间优化（如果有字幕）
-            if asr_result:
-                self.logger.info("⚡ 优化字幕时间")
-                self.subtitle_processor.process_subtitle_timing_optimization()
+            # 11. 添加音频（用于同步）
+            self.logger.info(f"🎵 添加音频: {audio_url}")
+            remove_pauses = inputs.get('remove_pauses', False)
+            if remove_pauses:
+                # 如果要移除停顿，使用音频处理器的停顿移除功能
+                processed_audio_path = self.audio_processor.remove_audio_pauses(audio_url)
+                if processed_audio_path:
+                    self.add_audio(processed_audio_path)
+                else:
+                    self.logger.warning("停顿移除失败，使用原始音频")
+                    self.add_audio(audio_url)
+            else:
+                self.add_audio(audio_url)
             
-            # 10. 保存草稿
+            # 12. 字幕时间优化
+            self.logger.info("⚡ 优化字幕时间")
+            self.subtitle_processor.process_subtitle_timing_optimization()
+            
+            # 13. 保存草稿
             self.context.script.save()
             
-            # 11. 记录执行时间
+            # 14. 记录执行时间
             execution_time = time.time() - start_time
-            self.logger.info(f"✅ 完整工作流完成！耗时: {execution_time:.2f}秒")
+            self.logger.info(f"✅ 完整优雅工作流完成！耗时: {execution_time:.2f}秒")
             
-            # 12. 保存详细摘要
+            # 15. 保存详细摘要
             self._save_complete_workflow_summary(inputs, self.context.script.save_path, execution_time)
             
             return self.context.script.save_path
             
         except Exception as e:
             execution_time = time.time() - start_time
-            self.logger.error(f"❌ 工作流失败: {e}")
+            self.logger.error(f"❌ 优雅工作流失败: {e}")
             self.logger.error(f"⏱️ 失败前耗时: {execution_time:.2f}秒")
-            raise WorkflowError(f"完整工作流处理失败: {e}") from e
+            raise WorkflowError(f"完整优雅工作流处理失败: {e}") from e
+    
+    def _adjust_subtitle_timing(self, subtitles: List[Dict[str, Any]], delay_seconds: float = 0.0, 
+                               speed_factor: float = 1.0) -> List[Dict[str, Any]]:
+        """调整字幕时间 - 添加延迟和调整语速"""
+        if not subtitles:
+            return []
+        
+        self.logger.info(f"⏰ 调整字幕时间: 延迟={delay_seconds:.1f}s, 速度系数={speed_factor:.2f}")
+        
+        adjusted_subtitles = []
+        
+        for i, subtitle in enumerate(subtitles):
+            # 应用速度系数
+            original_start = subtitle.get('start', 0)
+            original_end = subtitle.get('end', original_start + 1)
+            original_duration = original_end - original_start
+            
+            # 调整时间（保持两位小数精度）
+            new_start = round(original_start / speed_factor + delay_seconds, 2)
+            new_duration = round(original_duration / speed_factor, 2)
+            new_end = round(new_start + new_duration, 2)
+            
+            # 确保时间不为负（保持两位小数）
+            new_start = round(max(0, new_start), 2)
+            new_end = round(max(new_start + 0.5, new_end), 2)  # 最少0.5秒显示时间
+            
+            adjusted_subtitle = {
+                'text': subtitle['text'],
+                'start': new_start,
+                'end': new_end
+            }
+            adjusted_subtitles.append(adjusted_subtitle)
+        
+        self.logger.info(f"✅ 字幕时间调整完成")
+        return adjusted_subtitles
     
     def process_simple_workflow(self, inputs: Dict[str, Any]) -> str:
         """处理简化工作流
@@ -461,18 +607,20 @@ def main():
             {"text": "让视频编辑变得更加优雅", "start_time": 10.5, "end_time": 13.0}
         ]
         
-        # 配置完整工作流参数
+        # 配置完整工作流参数 - 使用真实ASR参数
         complete_inputs = {
-            "audio_url": "https://example.com/audio.mp3",
-            "video_url": "https://example.com/video.mp4", 
-            "digital_human_url": "https://example.com/digital_human.mp4",
+            "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
+            "digital_human_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224537001.mp4",
             "background_music_path": background_music_path,
             "background_music_volume": 0.25,
-            "title": "优雅工作流v2.0演示",
-            "title_duration": 3.0,
-            "asr_result": mock_asr_result,
-            "apply_pauses": True,
-            "pause_intensity": 0.6
+            "title": "买房子该怎么买，一定要牢记",
+            "volcengine_appid": "6046310832",
+            "volcengine_access_token": "M1I3MjFhNzQ5YjQ5NDQ2YmFjNjFhMjcwM2Y0ZTczOTEa",
+            "doubao_token": "pt-a8ab5e4e-5e81-46c2-b30a-bf66a77ba0d2",
+            "doubao_model": "doubao-1-5-pro-32k-250115",
+            "subtitle_delay": 0.0,
+            "subtitle_speed": 1.0,
+            "remove_pauses": False  # 设置为True可测试停顿移除
         }
         
         # 处理完整工作流

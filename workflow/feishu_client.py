@@ -618,7 +618,7 @@ class FeishuVideoTaskSource:
             }
             
             # 只添加有标题和内容的任务
-            if task["title"] and task["content"]:
+            if task["content"]:
                 tasks.append(task)
         
         return tasks

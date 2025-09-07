@@ -1,15 +1,34 @@
 """
 音频处理器
 
-负责音频相关的处理功能
+负责音频相关的处理功能，包括ASR转录
 """
 
 import os
 import pyJianYingDraft as draft
 from pyJianYingDraft import tim, trange
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from ..core.base import BaseProcessor, WorkflowContext
 from ..core.exceptions import ProcessingError
+
+# 导入ASR相关模块
+try:
+    from ..component.volcengine_asr import VolcengineASR
+    from ..component.asr_silence_processor import ASRBasedSilenceRemover, ASRSilenceDetector
+except ImportError:
+    # 尝试从当前目录导入
+    try:
+        import sys
+        from pathlib import Path
+        current_dir = Path(__file__).parent.parent
+        sys.path.append(str(current_dir / 'component'))
+        from volcengine_asr import VolcengineASR
+        from asr_silence_processor import ASRBasedSilenceRemover, ASRSilenceDetector
+    except ImportError as e:
+        print(f"Warning: ASR modules not available: {e}")
+        VolcengineASR = None
+        ASRBasedSilenceRemover = None
+        ASRSilenceDetector = None
 
 class AudioProcessor(BaseProcessor):
     """音频处理器"""
@@ -181,3 +200,163 @@ class AudioProcessor(BaseProcessor):
             self._log("info", f"背景音乐循环已添加: {os.path.basename(music_path)}，{loop_count}次循环，总时长: {target_duration:.2f}s，音量: {volume}")
         
         return
+    
+    def initialize_asr(self, volcengine_appid: str = None, volcengine_access_token: str = None,
+                       doubao_token: str = None, doubao_model: str = "doubao-1-5-pro-32k-250115"):
+        """初始化火山引擎ASR
+        
+        Args:
+            volcengine_appid: 火山引擎ASR AppID
+            volcengine_access_token: 火山引擎ASR AccessToken
+            doubao_token: 豆包API Token（用于关键词提取）
+            doubao_model: 豆包模型名称
+        """
+        if not VolcengineASR:
+            raise ProcessingError("ASR模块不可用，请检查导入")
+            
+        if volcengine_appid and volcengine_access_token:
+            self.volcengine_asr = VolcengineASR(
+                appid=volcengine_appid,
+                access_token=volcengine_access_token,
+                doubao_token=doubao_token,
+                doubao_model=doubao_model
+            )
+            self._log("info", f"火山引擎ASR已初始化 (AppID: {volcengine_appid})")
+            if doubao_token:
+                self._log("info", f"豆包API已配置 (Model: {doubao_model})")
+        else:
+            raise ProcessingError("必须提供 volcengine_appid 和 volcengine_access_token 参数")
+    
+    def transcribe_audio(self, audio_url: str) -> List[Dict[str, Any]]:
+        """使用火山引擎ASR进行音频转录
+        
+        Args:
+            audio_url: 音频URL（本地路径或网络URL）
+            
+        Returns:
+            字幕对象数组 [{'text': str, 'start': float, 'end': float}, ...]
+        """
+        if not hasattr(self, 'volcengine_asr') or not self.volcengine_asr:
+            raise ProcessingError("火山引擎ASR未初始化，请先调用initialize_asr")
+        
+        self._log("info", f"开始音频转录: {audio_url}")
+        
+        try:
+            # 使用火山引擎ASR进行转录
+            subtitle_objects = self.volcengine_asr.process_audio_file(audio_url)
+            
+            if subtitle_objects:
+                self._log("info", f"火山引擎转录完成，生成 {len(subtitle_objects)} 段字幕")
+                
+                # 记录转录结果摘要
+                total_duration = 0
+                for subtitle in subtitle_objects:
+                    duration = subtitle['end'] - subtitle['start']
+                    total_duration += duration
+                
+                self._log("info", f"转录统计: {len(subtitle_objects)}段, 总时长{total_duration:.1f}秒")
+                return subtitle_objects
+            else:
+                self._log("error", "火山引擎转录失败")
+                return []
+                
+        except Exception as e:
+            self._log("error", f"音频转录过程中出错: {e}")
+            raise ProcessingError(f"音频转录失败: {e}")
+    
+    def extract_keywords(self, text: str) -> List[str]:
+        """使用AI提取关键词
+        
+        Args:
+            text: 需要分析的文本
+            
+        Returns:
+            关键词列表
+        """
+        if not hasattr(self, 'volcengine_asr') or not self.volcengine_asr:
+            raise ProcessingError("火山引擎ASR未初始化，请先调用initialize_asr")
+        
+        try:
+            keywords = self.volcengine_asr.extract_keywords_with_ai(text)
+            if keywords:
+                self._log("info", f"AI提取到 {len(keywords)} 个关键词: {keywords}")
+            else:
+                self._log("warning", "未提取到关键词")
+            return keywords or []
+        except Exception as e:
+            self._log("error", f"关键词提取失败: {e}")
+            return []
+    
+    def remove_audio_pauses(self, audio_url: str, min_pause_duration: float = 0.2,
+                           max_word_gap: float = 0.8) -> Optional[str]:
+        """移除音频中的停顿
+        
+        Args:
+            audio_url: 原始音频URL
+            min_pause_duration: 最小停顿时长(秒)
+            max_word_gap: 单词间最大间隔(秒)
+            
+        Returns:
+            处理后的音频文件路径，如果失败返回None
+        """
+        if not hasattr(self, 'volcengine_asr') or not self.volcengine_asr:
+            self._log("warning", "ASR未初始化，跳过停顿移除")
+            return None
+        
+        if not ASRBasedSilenceRemover or not ASRSilenceDetector:
+            self._log("warning", "停顿处理模块不可用，跳过停顿移除")
+            return None
+        
+        try:
+            self._log("info", "开始音频停顿检测和移除...")
+            
+            # 使用ASR转录音频
+            asr_result = self.volcengine_asr.transcribe_audio_for_silence_detection(audio_url)
+            
+            if not asr_result:
+                self._log("warning", "ASR转录失败，跳过停顿移除")
+                return None
+            
+            # 检测停顿
+            pause_detector = ASRSilenceDetector(min_pause_duration, max_word_gap)
+            pause_segments = pause_detector.detect_pauses_from_asr(asr_result)
+            
+            if not pause_segments:
+                self._log("info", "未检测到需要移除的停顿")
+                return None
+            
+            # 下载音频到本地进行处理
+            from ..managers.material_manager import MaterialManager
+            material_manager = MaterialManager(self.context, self.logger)
+            
+            audio_local_path = material_manager.generate_unique_filename("audio", ".mp3")
+            local_path = material_manager.download_material(audio_url, audio_local_path)
+            
+            # 移除停顿
+            silence_remover = ASRBasedSilenceRemover(min_pause_duration, max_word_gap)
+            
+            import tempfile
+            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
+                output_path = temp_file.name
+            
+            result = silence_remover.remove_pauses_from_audio(
+                local_path, asr_result, output_path
+            )
+            
+            if result['success']:
+                pause_stats = result['pause_statistics']
+                self._log("info", f"停顿移除完成:")
+                self._log("info", f"   - 移除停顿时长: {result['removed_duration']:.2f} 秒")
+                self._log("info", f"   - 停顿次数: {pause_stats['pause_count']}")
+                self._log("info", f"   - 处理后音频时长: {result['processed_duration']:.2f} 秒")
+                
+                return output_path
+            else:
+                self._log("error", "停顿移除失败")
+                if os.path.exists(output_path):
+                    os.unlink(output_path)
+                return None
+                
+        except Exception as e:
+            self._log("error", f"停顿移除处理失败: {e}")
+            return None

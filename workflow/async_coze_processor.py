@@ -337,7 +337,7 @@ class AsyncCozeProcessor:
                 "content": task.content,
                 "digital_no": task.digital_no,
                 "voice_id": task.voice_id,
-                "title": task.title
+                "title": task.title,
             }
             
             # 直接使用Coze结果进行视频合成
@@ -476,6 +476,7 @@ class AsyncCozeProcessor:
                     # 立即触发已完成任务的视频合成
                     if completed_tasks:
                         print(f"🎬 发现 {len(completed_tasks)} 个已完成任务，立即触发视频合成")
+                        print(f"任务： {completed_tasks}")
                         for task in completed_tasks:
                             self.synthesis_executor.submit(self.synthesize_video_async, task)
                 

@@ -49,6 +49,7 @@ class VideoEditingWorkflow:
         self.script = None
         self.audio_duration = 0  # 音频总时长（秒）
         self.video_duration = 0  # 视频总时长（秒）
+        print(f"[VIDEO_DURATION] 初始化: {self.video_duration:.6f}s")
         self.project_duration = 0  # 项目总时长（秒），取音视频最长者
         self.volcengine_asr = None  # 火山引擎ASR客户端
         self.silence_remover = None  # 停顿移除器
@@ -59,6 +60,12 @@ class VideoEditingWorkflow:
         self.adjusted_subtitles = None  # 调整后的字幕（停顿移除后）
         self.original_subtitles = None  # 原始字幕（停顿移除前）
         self.secondary_asr_subtitles = None  # 二次ASR生成的字幕
+        
+        # 初始化封面相关属性
+        self.cover_enabled = False  # 是否启用封面
+        self.cover_duration = 0.0  # 封面时长（秒）
+        self.cover_image_path = None  # 封面图片路径
+        self.time_offset = 0.0  # 时间偏移量（秒）
         
         # 初始化日志系统
         self._init_logging()
@@ -337,7 +344,7 @@ class VideoEditingWorkflow:
             bold=True,
             align=0,  # 左对齐
             color=(1.0, 1.0, 1.0),
-            auto_wrapping=True,
+            # auto_wrapping=True,
             max_line_width=0.7,
             line_spacing=line_spacing
         )
@@ -375,9 +382,9 @@ class VideoEditingWorkflow:
     def _update_project_duration(self):
         """更新项目总时长，取音视频中的最长者"""
         # 使用更高精度避免帧数不匹配问题
-        self.project_duration = round(max(self.audio_duration, self.video_duration), 6)
+        self.project_duration = round(self.video_duration, 6)
         if self.project_duration > 0:
-            print(f"[INFO] 项目总时长更新为: {self.project_duration:.6f} 秒 (音频: {self.audio_duration:.6f}s, 视频: {self.video_duration:.6f}s)")
+            print(f"[INFO] 项目总时长更新为: {self.project_duration:.6f} 秒 ，视频: {self.video_duration:.6f}s)")
     
     def _validate_duration_bounds(self, duration: float, context: str = "") -> float:
         """验证时长边界，确保不超过视频总时长
@@ -420,22 +427,20 @@ class VideoEditingWorkflow:
         """
         # 如果进行了停顿移除处理，video_duration 已经是处理后的时长
         # 否则使用项目总时长
+        print(f"[VIDEO_DURATION] 获取有效时长: video={self.video_duration:.6f}s, audio={self.audio_duration:.6f}s, project={self.project_duration:.6f}s")
+        
         if hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles and self.video_duration > 0:
             # 使用处理后的视频时长
             effective_duration = self.video_duration
-            print(f"[DEBUG] 使用处理后的有效视频时长: {effective_duration:.2f}s")
+            print(f"[VIDEO_DURATION] 使用处理后的视频时长: {effective_duration:.6f}s")
         elif self.video_duration > 0:
             # 使用原始视频时长
             effective_duration = self.video_duration
-            print(f"[DEBUG] 使用原始视频时长: {effective_duration:.2f}s")
-        elif self.audio_duration > 0:
-            # 回退到音频时长
-            effective_duration = self.audio_duration
-            print(f"[DEBUG] 回退使用音频时长: {effective_duration:.2f}s")
+            print(f"[VIDEO_DURATION] 使用原始视频时长: {effective_duration:.6f}s")
         else:
             # 最后回退到项目时长
             effective_duration = self.project_duration
-            print(f"[DEBUG] 回退使用项目时长: {effective_duration:.2f}s")
+            print(f"[VIDEO_DURATION] 回退使用项目时长: {effective_duration:.6f}s")
             
         return effective_duration
     def download_material(self, url: str, local_path: str) -> str:
@@ -462,7 +467,7 @@ class VideoEditingWorkflow:
             with open(local_path, 'wb') as f:
                 for chunk in response.iter_content(chunk_size=8192):
                     f.write(chunk)
-            
+                    
             print(f"[DEBUG] 下载成功: {local_path}")
             return local_path
         except Exception as e:
@@ -503,12 +508,13 @@ class VideoEditingWorkflow:
         
         # 添加基础轨道（通过调用顺序控制层级，索引递增）
         self.script.add_track(TrackType.video, "主视频轨道", relative_index=1)
-        self.script.add_track(TrackType.video, "数字人视频轨道", relative_index=2)  
-        self.script.add_track(TrackType.audio, "音频轨道", relative_index=3)
-        self.script.add_track(TrackType.audio, "背景音乐轨道", relative_index=4)
-        # 文本类：按调用顺序设置层级
+        self.script.add_track(TrackType.audio, "音频轨道", relative_index=2)
+        self.script.add_track(TrackType.audio, "背景音乐轨道", relative_index=3)
+        # 文本类：字幕背景在对应字幕下方（层级更低，先创建）
+        self.script.add_track(TrackType.text, "内容字幕背景", relative_index=4)  # 背景在下方
         self.script.add_track(TrackType.text, "内容字幕轨道", relative_index=5)
-        self.script.add_track(TrackType.text, "标题字幕轨道", relative_index=6)
+        self.script.add_track(TrackType.text, "标题字幕背景", relative_index=6)  # 背景在下方
+        self.script.add_track(TrackType.text, "标题字幕轨道", relative_index=7)
         
         return self.script
     
@@ -565,14 +571,15 @@ class VideoEditingWorkflow:
             total_video_duration += duration
             
         # 更新视频总时长 
-        self.video_duration = round(total_video_duration, 2)
+        old_duration = self.video_duration
+        self.video_duration = round(total_video_duration, 6)
         self._update_project_duration()
-        print(f"[INFO] 视频总时长: {self.video_duration:.2f} 秒")
+        print(f"[VIDEO_DURATION] 视频片段累计: {old_duration:.6f}s -> {self.video_duration:.6f}s (累计: {total_video_duration:.6f}s)")
             
         return video_segments
     
     def add_digital_human_video(self, digital_video_url: str, duration: int = None, remove_pauses: bool = False,
-                               min_pause_duration: float = 0.2, max_word_gap: float = 0.8):
+                               min_pause_duration: float = 0.2, max_word_gap: float = 0.8, time_offset: float = 0.0):
         """添加数字人视频
         
         Args:
@@ -623,74 +630,60 @@ class VideoEditingWorkflow:
                     
                     if pause_segments:
                         print(f"[OK] 检测到 {len(pause_segments)} 个停顿段落")
+                     
+                        # 6. 调整字幕时间轴
+                        adjusted_subtitles = self._adjust_subtitle_timings(
+                            subtitle_objects, pause_segments, time_offset
+                        )
+                        self.adjusted_subtitles = adjusted_subtitles
+                        self.original_subtitles = subtitle_objects
                         
-                        # 5. 处理音频停顿
-                        processed_audio_path = self._process_audio_pauses_with_asr_result(
-                            temp_audio_path, asr_result, pause_segments, 
-                            min_pause_duration, max_word_gap, enable_secondary_asr=True
+                        # 7. 使用非破坏性片段标记方式处理停顿（避免真实切割，完美保持原始质量）
+                        success = self._process_video_pauses_by_segments_marking(
+                            local_path, pause_segments, time_offset
                         )
                         
-                        if processed_audio_path:
-                            # 6. 调整字幕时间轴
-                            adjusted_subtitles = self._adjust_subtitle_timings(
-                                subtitle_objects, pause_segments
-                            )
-                            self.adjusted_subtitles = adjusted_subtitles
-                            self.original_subtitles = subtitle_objects
-                            
-                            # 7. 使用非破坏性片段标记方式处理停顿（避免真实切割，完美保持原始质量）
-                            success = self._process_video_pauses_by_segments_marking(
-                                local_path, pause_segments
-                            )
-                            
-                            if success:
-                                print(f"[OK] 非破坏性视频停顿标记完成，字幕与视频完全同步")
-                                # 设置标志，表示已经手动添加了所有片段，需要跳过正常的 add_digital_human_video 逻辑
-                                self.skip_normal_processing = True
-                            else:
-                                print(f"[WARN] 非破坏性视频停顿标记失败，跳过停顿移除")
-                                # 清理已添加到数字人视频轨道的片段，避免重叠
-                                try:
-                                    digital_track = self.script.tracks["数字人视频轨道"]
-                                    if hasattr(digital_track, 'segments') and digital_track.segments:
-                                        digital_track.segments.clear()
-                                        print(f"[OK] 数字人视频轨道已清理")
-                                except Exception as e:
-                                    print(f"[WARN] 清理数字人视频轨道失败: {e}")
-                            
-                            # 8. 添加调整后的字幕到视频
-                            if adjusted_subtitles:
-                                print(f"[OK] 添加调整后的字幕: {len(adjusted_subtitles)} 段")
-                                
-                                # 提取关键词用于高亮
-                                all_text = " ".join([sub['text'] for sub in adjusted_subtitles])
-                                keywords = self.volcengine_asr.extract_keywords_with_ai(all_text)
-                                
-                                if keywords:
-                                    print(f"[OK] 视频字幕提取到 {len(keywords)} 个关键词: {keywords}")
-                                else:
-                                    print("[WARN] 视频字幕未提取到关键词")
-                                
-                                # 清理现有的字幕轨道以避免重叠
-                                self._clear_caption_tracks()
-                                
-                                # 添加字幕（带关键词高亮）
-                                self.add_captions(adjusted_subtitles, track_name="内容字幕轨道", position="bottom",
-                                                keywords=keywords, 
-                                                base_color=(1.0, 1.0, 1.0),  # 白色
-                                                base_font_size=8.0,  # 8号
-                                                font_type=draft.FontType.俪金黑,  # 俪金黑
-                                                highlight_size=10.0,  # 高亮10号
-                                                highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
-                                                scale=1.39)  # 缩放1.39
-                                
-                                # 为字幕添加背景色块
-                                self.add_caption_backgrounds(adjusted_subtitles, position="bottom", 
-                                                           bottom_transform_y=-0.3, scale=1.39)
-                                
-                                print(f"[OK] 调整后的字幕已添加（含关键词高亮）")
+                        if success:
+                            print(f"[OK] 非破坏性视频停顿标记完成，字幕与视频完全同步")
+                            # 设置标志，表示已经手动添加了所有片段，需要跳过正常的 add_digital_human_video 逻辑
+                            self.skip_normal_processing = True
                         else:
-                            print("[WARN] 音频停顿处理失败，使用原始视频")
+                            print(f"[WARN] 非破坏性视频停顿标记失败，跳过停顿移除")
+                         
+                        # 8. 添加调整后的字幕到视频
+                        if adjusted_subtitles:
+                            print(f"[OK] 添加调整后的字幕: {len(adjusted_subtitles)} 段")
+                            
+                            # 提取关键词用于高亮
+                            all_text = " ".join([sub['text'] for sub in adjusted_subtitles])
+                            keywords = self.volcengine_asr.extract_keywords_with_ai(all_text)
+                            
+                            if keywords:
+                                print(f"[OK] 视频字幕提取到 {len(keywords)} 个关键词: {keywords}")
+                            else:
+                                print("[WARN] 视频字幕未提取到关键词")
+                            
+                            # # 清理现有的字幕轨道以避免重叠
+                            # self._clear_caption_tracks()
+                            
+                            # 添加字幕（带关键词高亮）
+                            self.add_captions(adjusted_subtitles, track_name="内容字幕轨道", position="bottom",
+                                            keywords=keywords, 
+                                            base_color=(1.0, 1.0, 1.0),  # 白色
+                                            base_font_size=8.0,  # 8号
+                                            font_type=draft.FontType.俪金黑,  # 俪金黑
+                                            highlight_size=10.0,  # 高亮10号
+                                            highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
+                                            scale=1.39)  # 缩放1.39
+                            
+                            # 为字幕添加背景色块
+                            self.add_caption_backgrounds(adjusted_subtitles, position="bottom", 
+                                                        bottom_transform_y=-0.3, scale=1.39,
+                                                        time_offset=time_offset)
+                            
+                            print(f"[OK] 调整后的字幕已添加（含关键词高亮）")
+                        # else:
+                        #     print("[WARN] 音频停顿处理失败，使用原始视频")
                     else:
                         print("[DEBUG] 未检测到需要移除的停顿")
                 else:
@@ -702,53 +695,7 @@ class VideoEditingWorkflow:
         # 保存数字人视频路径
         self.digital_video_path = local_path
         
-        # 检查是否已经手动处理过多片段
-        if hasattr(self, 'skip_normal_processing') and self.skip_normal_processing:
-            self.skip_normal_processing = False
-            return None
-        
-        # 获取视频素材信息
-        video_material = draft.VideoMaterial(local_path)
-        
-        # 如果没有指定持续时长，使用整个视频
-        if duration is None:
-            duration_microseconds = video_material.duration
-            duration_seconds = duration_microseconds / 1000000
-            
-            # 如果进行了停顿移除，使用处理后的音频时长
-            if remove_pauses and hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles:
-                # 计算处理后的总时长
-                if self.adjusted_subtitles:
-                    processed_duration = self.adjusted_subtitles[-1]['end']
-                    
-                    # 确保不超过原始视频时长
-                    if processed_duration <= duration_seconds:
-                        duration_seconds = processed_duration
-                        duration_microseconds = tim(f"{duration_seconds:.6f}s")
-                        print(f"[INFO] 使用处理后的时长: {duration_seconds:.1f}s")
-                    else:
-                        print(f"[WARN] 处理后时长({processed_duration:.1f}s)超过原始视频时长({duration_seconds:.1f}s)，使用原始时长")
-                        duration_microseconds = tim(f"{duration_seconds:.6f}s")
-        else:
-            duration_microseconds = tim(f"{duration:.6f}s")
-            duration_seconds = duration
-        
-        # 创建数字人视频片段
-        digital_segment = draft.VideoSegment(
-            video_material,
-            trange(tim("0s"), duration_microseconds)
-        )
-        
-        # 添加到数字人视频轨道
-        self.script.add_segment(digital_segment, track_name="数字人视频轨道")
-        
-        # 更新视频时长 - 使用更高精度避免帧数不匹配
-        self.video_duration = round(max(self.video_duration, duration_seconds), 6)
-        print(f"[INFO] 数字人视频时长: {duration_seconds:.6f} 秒")
-        
-        self._update_project_duration()
-        
-        return digital_segment
+       
     
     def add_audio(self, audio_url: str, duration: int = None, volume: float = 1.0, remove_pauses: bool = False,
                   min_pause_duration: float = 0.2, max_word_gap: float = 0.8):
@@ -764,7 +711,7 @@ class VideoEditingWorkflow:
         """
         if not self.script:
             raise ValueError("请先创建草稿")
-        
+            
         # 保存原始URL用于ASR处理
         original_audio_url = audio_url
         print(f"[DEBUG] 原始音频URL: {original_audio_url}")
@@ -891,8 +838,9 @@ class VideoEditingWorkflow:
                 actual_duration = min(original_audio_duration, self.video_duration)
                 if original_audio_duration > self.video_duration:
                     print(f"[WARN] 音频时长({original_audio_duration:.1f}s)超过视频时长({self.video_duration:.1f}s)，将截取至视频时长")
-            else:
-                actual_duration = original_audio_duration
+                    actual_duration = self.video_duration
+                else:
+                    actual_duration = original_audio_duration
         else:
             # 如果有视频，检查指定时长是否超过视频时长
             if self.video_duration > 0 and duration > self.video_duration:
@@ -931,13 +879,14 @@ class VideoEditingWorkflow:
         
         return audio_segment
     
-    def add_background_music(self, music_path: str, target_duration: float = None, volume: float = 0.3):
+    def add_background_music(self, music_path: str, target_duration: float = None, volume: float = 0.3, time_offset: float = 0.0):
         """添加背景音乐
         
         Args:
             music_path: 背景音乐文件路径（本地路径）
             target_duration: 目标时长（秒），如果None则使用项目总时长（音视频中最长者）
             volume: 音量(0-1)，默认0.3比较适合背景音乐
+            time_offset: 时间偏移（秒），背景音乐开始播放的时间偏移
         """
         if not self.script:
             raise ValueError("请先创建草稿")
@@ -952,14 +901,14 @@ class VideoEditingWorkflow:
         if target_duration is None:
             effective_duration = self.get_effective_video_duration()
             if effective_duration > 0:
-                target_duration = round(effective_duration, 2)
-                print(f"[INFO] 背景音乐将使用有效视频时长: {target_duration:.2f}s (确保不超过处理后视频长度)")
+                target_duration = round(effective_duration, 6)
+                print(f"[INFO] 背景音乐将使用有效视频时长: {target_duration:.6f}s (确保不超过处理后视频长度)")
             elif self.video_duration > 0:
-                target_duration = round(self.video_duration, 2)
-                print(f"[INFO] 背景音乐将使用视频时长: {target_duration:.2f}s")
+                target_duration = round(self.video_duration, 6)
+                print(f"[INFO] 背景音乐将使用视频时长: {target_duration:.6f}s")
             elif self.audio_duration > 0:
-                target_duration = round(self.audio_duration, 2)
-                print(f"[INFO] 背景音乐将使用音频时长: {target_duration:.2f}s")
+                target_duration = round(self.audio_duration, 6)
+                print(f"[INFO] 背景音乐将使用音频时长: {target_duration:.6f}s")
             else:
                 raise ValueError("无法确定目标时长，请先添加音频或视频，或指定target_duration")
         else:
@@ -976,13 +925,13 @@ class VideoEditingWorkflow:
             # 背景音乐够长，直接截取
             bg_music_segment = draft.AudioSegment(
                 bg_music_material,
-                trange(tim("0s"), target_duration_microseconds),
+                trange(tim(f"{time_offset:.6f}s"), tim(f"{target_duration:.6f}s")),
                 volume=volume
             )
             # 添加淡入淡出已移除
             # 添加到背景音乐轨道
             self.script.add_segment(bg_music_segment, track_name="背景音乐轨道")
-            print(f"[INFO] 背景音乐已添加: {os.path.basename(music_path)}，截取时长: {target_duration:.2f}s，音量: {volume}")
+            print(f"[INFO] 背景音乐已添加: {os.path.basename(music_path)}，开始时间: {time_offset:.6f}s，截取时长: {target_duration:.6f}s，音量: {volume}")
         else:
             # 背景音乐太短，需要循环
             print(f"[INFO] 背景音乐时长 {bg_music_duration_seconds:.2f}s，目标时长 {target_duration:.2f}s，将循环播放")
@@ -999,10 +948,10 @@ class VideoEditingWorkflow:
                     
                 current_duration = min(bg_music_duration_seconds, remaining_time)
                 
-                # 创建当前循环的音频片段
+                # 创建当前循环的音频片段，应用时间偏移
                 loop_segment = draft.AudioSegment(
                     bg_music_material,
-                    trange(tim(f"{current_time:.6f}s"), tim(f"{current_duration:.6f}s")),
+                    trange(tim(f"{time_offset + current_time:.6f}s"), tim(f"{current_duration:.6f}s")),
                     volume=volume
                 )
                 
@@ -1015,7 +964,7 @@ class VideoEditingWorkflow:
                 
                 current_time += current_duration
             
-            print(f"[INFO] 背景音乐循环已添加: {os.path.basename(music_path)}，{loop_count}次循环，总时长: {target_duration:.2f}s，音量: {volume}")
+            print(f"[INFO] 背景音乐循环已添加: {os.path.basename(music_path)}，开始时间: {time_offset:.6f}s，{loop_count}次循环，总时长: {target_duration:.6f}s，音量: {volume}")
         
         return
     
@@ -1113,14 +1062,22 @@ class VideoEditingWorkflow:
             )
         )
         
-        # 确保目标轨道存在（若不存在则自动创建为文本轨道，按调用顺序设置层级）
+        # 确保目标轨道存在（若不存在则自动创建为文本轨道，背景轨道层级更低）
         try:
             _ = self.script.tracks[track_name]
         except KeyError:
-            # 计算下一个可用的相对索引（基于现有轨道数量）
-            existing_text_tracks = [name for name in self.script.tracks.keys() 
-                                  if self.script.tracks[name].track_type == TrackType.text]
-            next_index = len(existing_text_tracks) + 1
+            # 为字幕背景轨道设置正确的层级（在对应的字幕轨道之前）
+            if "背景" in track_name:
+                # 背景轨道应该在对应的字幕轨道之前创建，层级更低
+                existing_text_tracks = [name for name in self.script.tracks.keys() 
+                                      if self.script.tracks[name].track_type == TrackType.text]
+                # 背景轨道使用较低的索引
+                next_index = len(existing_text_tracks) + 1
+            else:
+                # 普通字幕轨道使用正常索引
+                existing_text_tracks = [name for name in self.script.tracks.keys() 
+                                      if self.script.tracks[name].track_type == TrackType.text]
+                next_index = len(existing_text_tracks) + 2  # 留出空间给对应的背景轨道
             self.script.add_track(TrackType.text, track_name, relative_index=next_index)
 
         # 添加到轨道
@@ -1128,7 +1085,7 @@ class VideoEditingWorkflow:
         
         print(f"[OK] 带背景的文本已添加: '{text_content[:20]}...' 到 {track_name}")
         print(f"   背景: {background_style['color']} {background_style['alpha']*100:.0f}% 透明度")
-        print(f"   位置: {position}, 时长: {timerange_duration:.1f}秒")
+        print(f"   位置: {position}, 时长: {timerange_duration:.6f}秒")
         
         return text_segment
     
@@ -1264,7 +1221,8 @@ class VideoEditingWorkflow:
                     highlight_color: Tuple[float, float, float] = (1.0, 0.7529411765, 0.2470588235),
                     highlight_size: float = 10.0,
                     bottom_transform_y: float = -0.3,
-                    scale: float = 1.39):
+                    scale: float = 1.39,
+                    time_offset: float = 0.0):
         """添加字幕，支持关键词高亮
         
         Args:
@@ -1278,7 +1236,7 @@ class VideoEditingWorkflow:
         """
         if not self.script:
             raise ValueError("请先创建草稿")
-        
+            
         # 如果没有提供字幕数据，尝试使用调整后的字幕
         if caption_data is None:
             if hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles:
@@ -1288,8 +1246,8 @@ class VideoEditingWorkflow:
                 print("[DEBUG] 没有可用的字幕数据")
                 return
         
-        # 清理现有的字幕轨道以避免重叠
-        self._clear_caption_tracks()
+        # # 清理现有的字幕轨道以避免重叠
+        # self._clear_caption_tracks()
             
         text_segments = []
         
@@ -1316,13 +1274,17 @@ class VideoEditingWorkflow:
                     if keyword and keyword.strip() and keyword in text:
                         current_keywords.append(keyword)
                         
+            # 应用时间偏移
+            adjusted_start_time = start_time + time_offset
+            adjusted_end_time = end_time + time_offset
+            
             # 计算时间范围（提高精度，保留两位小数）
-            start_time_str = f"{start_time:.2f}s"  # 使用2位小数精度
-            duration_str = f"{end_time - start_time:.2f}s"  # 使用2位小数精度
+            start_time_str = f"{adjusted_start_time:.2f}s"  # 使用2位小数精度
+            duration_str = f"{adjusted_end_time - adjusted_start_time:.2f}s"  # 使用2位小数精度
             
             # 调试：输出实际的时间参数（两位小数）
-            print(f"[DEBUG] 字幕时间参数: '{text}' -> start={start_time_str}, duration={duration_str}")
-            
+            print(f"[DEBUG] 字幕时间参数: '{text}' -> start={start_time_str}, duration={duration_str} (偏移: {time_offset:.6f}s)")
+                        
             # 创建文本片段，只传入当前文本中存在的关键词
             text_segment = draft.TextSegment(
                 text,
@@ -1367,7 +1329,8 @@ class VideoEditingWorkflow:
                                position: str = "bottom",
                                bottom_transform_y: float = -0.3,
                                scale: float = 1.39,
-                               background_style: Dict[str, Any] = None):
+                               background_style: Dict[str, Any] = None,
+                               time_offset: float = 0.0):
         """为字幕添加背景色块（独立功能，全程显示一个背景，复用标题背景方法）
         
         Args:
@@ -1397,24 +1360,24 @@ class VideoEditingWorkflow:
             }
         
         # 计算字幕背景的总时长（使用有效视频时长，确保不超过处理后的视频长度，保留两位小数）
-        start_time = 0.0  # 从项目开始
+        start_time = 0.0 + time_offset  # 从项目开始，应用时间偏移
         
         # 使用有效视频时长作为背景持续时间
         effective_duration = self.get_effective_video_duration()
         if effective_duration > 0:
-            total_duration = round(effective_duration, 2)
-            print(f"[DEBUG] 字幕背景使用有效视频时长: {total_duration:.2f}s (确保不超过处理后视频)")
+            total_duration = round(effective_duration, 6)
+            print(f"[DEBUG] 字幕背景使用有效视频时长: {total_duration:.6f}s (确保不超过处理后视频)")
         else:
             # 回退方案：使用字幕时长
             caption_start = min(caption.get('start', 0) for caption in caption_data)
             caption_end = max(caption.get('end', 0) for caption in caption_data)
-            total_duration = round(caption_end - caption_start, 2)
-            print(f"[DEBUG] 字幕背景回退使用字幕时长: {total_duration:.2f}s")
+            total_duration = round(caption_end - caption_start, 6)
+            print(f"[DEBUG] 字幕背景回退使用字幕时长: {total_duration:.6f}s")
         
         # 验证背景时长不超过视频总时长
         total_duration = self._validate_duration_bounds(total_duration, "字幕背景")
         
-        print(f"[DEBUG] 字幕背景时长设置: {start_time:.2f}s - {start_time + total_duration:.2f}s")
+        print(f"[DEBUG] 字幕背景时长设置: {start_time:.6f}s - {start_time + total_duration:.6f}s")
         
         # 根据位置设置不同的垂直位置
         if position == "top":
@@ -1454,7 +1417,7 @@ class VideoEditingWorkflow:
             # 添加入场动画
             segment.add_animation(IntroType.淡入)
     
-    def process_workflow(self, inputs: Dict[str, Any]) -> str:
+    def process_workflow(self, inputs: Dict[str, Any], time_offset: float = 0.0) -> str:
         """处理完整的工作流 - 专注音频转录生成字幕
         
         Args:
@@ -1469,6 +1432,7 @@ class VideoEditingWorkflow:
                 - subtitle_speed: 字幕速度系数，>1加快，<1减慢 (默认1.0)
                 - background_music_path: 背景音乐文件路径 (可选)
                 - background_music_volume: 背景音乐音量 (默认0.3)
+            time_offset: 前置时间差（秒），主片段整体往后迁移的时间 (默认0.0)
                 
         Returns:
             草稿保存路径
@@ -1484,14 +1448,12 @@ class VideoEditingWorkflow:
         
         # 其他参数
         audio_url = inputs.get('audio_url')
-        subtitle_delay = inputs.get('subtitle_delay', 0.0)  # 字幕延迟
         subtitle_speed = inputs.get('subtitle_speed', 1.0)  # 字幕速度系数
         background_music_path = inputs.get('background_music_path')  # 背景音乐路径
         background_music_volume = inputs.get('background_music_volume', 0.3)  # 背景音乐音量
-        
-        # 验证必需参数
-        if not audio_url:
-            raise ValueError("audio_url 是必需参数，用于音频转录")
+        # # 验证必需参数
+        # if not audio_url:
+        #     raise ValueError("audio_url 是必需参数，用于音频转录")
         
         # 开始执行时间记录
         import time
@@ -1501,15 +1463,14 @@ class VideoEditingWorkflow:
         self.logger.info(f"📋 输入参数: {', '.join([f'{k}: {v}' if k not in ['volcengine_access_token', 'doubao_token'] else f'{k}: ***' for k, v in inputs.items()])}")
         
         print(f"[INFO] 音频转录字幕工作流 + AI关键词高亮")
-        print(f"[INFO] 音频URL: {audio_url}")
-        print(f"[INFO] 字幕延迟: {subtitle_delay:.1f}秒")
+
         print(f"[INFO] 字幕速度: {subtitle_speed:.1f}x")
         print(f"[INFO] 火山引擎ASR (语音识别)")
         print(f"[INFO] 豆包API (关键词提取): {'已配置' if doubao_token else '未配置，将使用本地算法'}")
         
         # 同步到日志
         self.logger.info(f"🎵 音频URL: {audio_url}")
-        self.logger.info(f"⏱️ 字幕延迟: {subtitle_delay:.1f}秒")
+        # self.logger.info(f"⏱️ 字幕延迟: {subtitle_delay:.1f}秒")
         self.logger.info(f"🏃 字幕速度: {subtitle_speed:.1f}x")
         self.logger.info(f"🔥 火山引擎ASR (语音识别)")
         self.logger.info(f"🤖 豆包API (关键词提取): {'已配置' if doubao_token else '未配置，将使用本地算法'}")
@@ -1528,44 +1489,64 @@ class VideoEditingWorkflow:
         else:
             raise ValueError("必须提供 volcengine_appid 和 volcengine_access_token 参数")
         
-        # 1. 创建草稿
-        self.create_draft()
-        
-        # 2. 添加数字人视频（如果提供了音频URL，则直接处理视频中的音频）
+        # 1. 创建草稿（如果还没有创建）
+        if not self.script:
+            self.create_draft()
+
+        # 1.1 处理封面（如果提供了 cover_short_title/cover_image_path/cover_bottom_text）
+        effective_offset = time_offset
+        try:
+            cover_short_title = inputs.get('cover_short_title')
+            cover_image_path = inputs.get('cover_image_path')
+            cover_bottom_text = inputs.get('cover_bottom_text')
+
+            if cover_short_title or cover_image_path or cover_bottom_text:
+                print(f"[INFO] 准备添加封面: top='{(cover_short_title or '')[:20]}', bottom='{(cover_bottom_text or '')[:20]}', image='{cover_image_path or ''}'")
+                cover_result = self.add_cover(
+                    cover_image_path=cover_image_path,
+                    frames=2,
+                    fps=30,
+                    top_text=cover_short_title,
+                    bottom_text=cover_bottom_text,
+                )
+                # 使用封面时长作为后续主轴偏移
+                if isinstance(cover_result, dict) and 'cover_duration' in cover_result:
+                    effective_offset = float(cover_result['cover_duration'])
+                    print(f"[INFO] 封面已添加，应用主轴偏移: {effective_offset:.6f}s")
+                else:
+                    print("[WARN] 封面结果未包含 cover_duration，继续使用传入的 time_offset")
+        except Exception as e:
+            print(f"[ERROR] 添加封面失败: {e}")
+
+        # 2. 添加数字人视频及字幕生成
         digital_video_url = inputs.get('digital_video_url')
         if digital_video_url:
-            # 如果提供了音频URL，使用视频URL作为音频源进行处理
-            if audio_url:
-                print(f"[INFO] 使用视频音频进行停顿移除和字幕识别")
-                # 直接使用视频URL进行音频处理，不需要单独的音频轨道
-                self.add_digital_human_video(
+            self.add_digital_human_video(
                     digital_video_url, 
                     remove_pauses=True, 
                     min_pause_duration=0.2, 
-                    max_word_gap=0.8
+                    max_word_gap=0.8,
+                    time_offset=effective_offset
                 )
-            else:
-                # 没有音频URL，正常添加视频
-                self.add_digital_human_video(digital_video_url)
         
-        # 3. 添加素材视频（如果有）
-        material_video_url = inputs.get('material_video_url')
-        if material_video_url:
-            # 模拟时间轴数据
-            timelines = [{'start': 0, 'end': 10}]  # 可以根据实际需求调整
-            self.add_videos([material_video_url], timelines, volume=0.3)
+        # # 3. 添加素材视频（如果有）
+        # material_video_url = inputs.get('material_video_url')
+        # if material_video_url:
+        #     # 模拟时间轴数据
+        #     timelines = [{'start': 0, 'end': 10}]  # 可以根据实际需求调整
+        #     self.add_videos([material_video_url], timelines, volume=0.3)
         
-        # 4.1. 视频音频停顿处理已完成，字幕已同步
-        video_subtitles_added = False
-        if hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles:
-            print(f"[INFO] 视频音频停顿处理完成，字幕已同步")
-            video_subtitles_added = True
+        # # 4.1. 视频音频停顿处理已完成，字幕已同步
+        # video_subtitles_added = False
+        # if hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles:
+        #     print(f"[INFO] 视频音频停顿处理完成，字幕已同步")
+        #     video_subtitles_added = True
         
         # 4.3. 添加背景音乐（如果提供）
         if background_music_path:
             print(f"[INFO] 准备添加背景音乐: {background_music_path}")
             try:
-                self.add_background_music(background_music_path, volume=background_music_volume)
+                self.add_background_music(background_music_path, volume=background_music_volume, time_offset=effective_offset)
                 print(f"[OK] 背景音乐已成功添加: {background_music_path}")
             except Exception as e:
                 print(f"[ERROR] 背景音乐添加失败: {e}")
@@ -1590,13 +1571,13 @@ class VideoEditingWorkflow:
             }
             # 背景时长与标题一致：使用有效视频时长（确保不超过处理后视频长度，保留两位小数）
             effective_duration = self.get_effective_video_duration()
-            display_duration = round(effective_duration if effective_duration > 0 else (self.audio_duration if self.audio_duration > 0 else 5.0), 2)
+            display_duration = round(effective_duration if effective_duration > 0 else (self.audio_duration if self.audio_duration > 0 else 5.0), 6)
             
             # 验证背景时长不超过视频总时长
             display_duration = self._validate_duration_bounds(display_duration, "标题背景")
             self.add_styled_text_with_background(
                 text_content=multiline_text,
-                timerange_start=0,
+                timerange_start=effective_offset,
                 timerange_duration=display_duration,
                 track_name="标题字幕背景",
                 position="center",
@@ -1608,344 +1589,52 @@ class VideoEditingWorkflow:
         except Exception as e:
             print(f"[ERROR] 添加三行背景文字失败: {e}")
         
-        # 5. 生成音频转录字幕
+        # 5. 生成视频标题
         title = inputs.get('title', '')
+        # 添加标题字幕（三行标题，第二行高亮）
+        if title:
+            effective_duration = self.get_effective_video_duration()
+            title_duration = effective_duration if effective_duration > 0 else self.audio_duration
+            print(f"添加三行标题: {title} (0s - {title_duration:.1f}s) [使用有效视频时长]")
+            self.add_three_line_title(
+                title=title,
+                start=effective_offset,
+                duration=title_duration,
+                transform_y=0.72,
+                line_spacing=4,
+                highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
+                track_name="标题字幕轨道"
+            )
         
-        # 检查是否已经通过视频处理添加了字幕
-        if video_subtitles_added and hasattr(self, 'adjusted_subtitles') and self.adjusted_subtitles:
-            print(f"[INFO] 视频处理已添加字幕，跳过音频转录字幕添加")
-            final_subtitles = self.adjusted_subtitles
-        else:
-            # 音频转录生成字幕
-            print("🎤 开始音频转录生成字幕")
-            subtitle_objects = self.transcribe_audio_and_generate_subtitles(audio_url)
-            print(f"🔍 音频转录字幕: {subtitle_objects}")
-            
-            if subtitle_objects:
-                print(f"[OK] 音频转录成功，生成 {len(subtitle_objects)} 段字幕")
-                
-                # 🔥 使用火山引擎ASR结果，直接使用
-                print(f"🚀 使用火山引擎ASR结果")
-                final_subtitles = subtitle_objects
-                
-                # 只在需要时应用时间调整
-                if subtitle_delay != 0.0 or subtitle_speed != 1.0:
-                    print(f"⏰ 应用时间调整: 延迟{subtitle_delay:.1f}s, 速度{subtitle_speed:.1f}x")
-                    final_subtitles = self.adjust_subtitle_timing(final_subtitles, subtitle_delay, subtitle_speed)
-                
-                # 🤖 使用AI提取关键词用于高亮
-                print("\n🤖 开始AI关键词提取...")
-                all_text = " ".join([sub['text'] for sub in final_subtitles])
-                keywords = self.volcengine_asr.extract_keywords_with_ai(all_text)
-                
-                if keywords:
-                    print(f"[OK] AI提取到 {len(keywords)} 个关键词: {keywords}")
-                    keyword_color = (1.0, 0.984313725490196, 0.7254901960784313)  # 黄色高亮
-                else:
-                    print("⚠️ 未提取到关键词，使用普通字幕")
-                    keyword_color = None
-                
-                # 添加字幕到视频项目（带关键词高亮）
-                self.add_captions(final_subtitles, track_name="内容字幕轨道", position="bottom",
-                                keywords=keywords, 
-                                base_color=(1.0, 1.0, 1.0),  # 白色
-                                base_font_size=8.0,  # 8号
-                                font_type=draft.FontType.俪金黑,  # 俪金黑
-                                highlight_size=10.0,  # 高亮10号
-                                highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
-                                scale=1.39)  # 缩放1.39
-                
-                # 为字幕添加背景色块（独立功能）
-                self.add_caption_backgrounds(final_subtitles, position="bottom", 
-                                           bottom_transform_y=-0.3, scale=1.39)
-            else:
-                print("[WARN] 音频转录失败，无法生成字幕")
-                final_subtitles = []
-        
-        # 显示字幕添加结果
-        if final_subtitles:
-            print(f"\n已添加 {len(final_subtitles)} 段字幕到剪映项目")
-            print("前3段预览:")
-            for i, subtitle in enumerate(final_subtitles[:3], 1):
-                start = subtitle['start']
-                end = subtitle['end']
-                text = subtitle['text']
-                print(f"   {i}. [{start:.3f}s-{end:.3f}s] {text}")
-            
-            # 添加标题字幕（三行标题，第二行高亮）
-            if title:
-                effective_duration = self.get_effective_video_duration()
-                title_duration = effective_duration if effective_duration > 0 else self.audio_duration
-                print(f"添加三行标题: {title} (0s - {title_duration:.1f}s) [使用有效视频时长]")
-                self.add_three_line_title(
-                    title=title,
-                    start=0.0,
-                    duration=title_duration,
-                    transform_y=0.72,
-                    line_spacing=4,
-                    highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
-                    track_name="标题字幕轨道"
-                )
-        else:
-            print("[ERROR] 音频转录失败，无法生成字幕")
-            raise ValueError("音频转录失败，请检查音频文件和API配置")
         
         # 6. 保存草稿
         self.script.save()
         
         # 计算执行时间并保存日志摘要
-        execution_time = time.time() - start_time
-        self.logger.info(f"🎉 工作流执行完成！耗时: {execution_time:.2f}秒")
+        # execution_time = time.time() - start_time
+        # self.logger.info(f"🎉 工作流执行完成！耗时: {execution_time:.2f}秒")
         
-        # 记录字幕统计信息
-        if final_subtitles:
-            self._log_subtitle_details(final_subtitles, "最终生成的")
+        # # 记录字幕统计信息
+        # if final_subtitles:
+        #     self._log_subtitle_details(final_subtitles, "最终生成的")
+        
+        # 7. 轨道对齐处理：确保所有轨道都与主轴对齐且不得超过主轴
+        try:
+            self._align_all_tracks_with_main_track(effective_offset)
+            print(f"[OK] 所有轨道已与主轴对齐")
+        except Exception as e:
+            print(f"[ERROR] 轨道对齐处理失败: {e}")
         
         # 保存工作流摘要
         try:
+            execution_time = time.time() - start_time
             self._save_workflow_summary(inputs, self.script.save_path, execution_time)
         except Exception as e:
             self.logger.error(f"保存工作流摘要时出错: {e}")
         
         return self.script.save_path
     
-    def _remove_audio_pauses(self, original_audio_url: str, local_audio_path: str, min_pause_duration: float = 0.8, 
-                           max_word_gap: float = 1.5) -> Optional[str]:
-        """
-        移除音频中的停顿
-        
-        Args:
-            original_audio_url: 原始音频URL（用于ASR）
-            local_audio_path: 本地音频文件路径（用于处理）
-            min_pause_duration: 最小停顿时长(秒)
-            max_word_gap: 单词间最大间隔(秒)
-            
-        Returns:
-            Optional[str]: 处理后的音频文件路径，如果失败返回None
-        """
-        if not self.volcengine_asr:
-            print("⚠️  ASR未初始化，跳过停顿移除")
-            return None
-        
-        try:
-            print("🔍 开始音频停顿检测和移除...")
-            
-            # 初始化停顿移除器
-            if not self.silence_remover:
-                self.silence_remover = ASRBasedSilenceRemover(min_pause_duration, max_word_gap)
-            
-            # 使用ASR转录音频，直接使用原始URL
-            print(f"[DEBUG] 使用原始音频URL进行ASR: {original_audio_url}")
-            print(f"[DEBUG] original_audio_url type: {type(original_audio_url)}")
-            print(f"[DEBUG] original_audio_url.startswith http: {original_audio_url.startswith('http')}")
-            
-            asr_result = self.volcengine_asr.transcribe_audio_for_silence_detection(original_audio_url)
-            
-            if not asr_result:
-                print("⚠️  ASR转录失败，跳过停顿移除")
-                return None
-            
-            # 创建临时输出文件
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
-                output_path = temp_file.name
-            
-            # 移除停顿
-            result = self.silence_remover.remove_pauses_from_audio(
-                local_audio_path, asr_result, output_path
-            )
-            
-            if result['success']:
-                pause_stats = result['pause_statistics']
-                print(f"[OK] 停顿移除完成:")
-                print(f"   - 移除停顿时长: {result['removed_duration']:.2f} 秒")
-                print(f"   - 停顿次数: {pause_stats['pause_count']}")
-                print(f"   - 平均停顿时长: {pause_stats['average_pause_duration']:.2f} 秒")
-                print(f"   - 处理后音频时长: {result['processed_duration']:.2f} 秒")
-                
-                return output_path
-            else:
-                print("[ERROR] 停顿移除失败")
-                # 清理临时文件
-                if os.path.exists(output_path):
-                    os.unlink(output_path)
-                return None
-                
-        except Exception as e:
-            print(f"[ERROR] 停顿移除处理失败: {e}")
-            return None
-    
-    def _remove_audio_video_pauses(self, original_audio_url: str, local_audio_path: str, video_path: str, 
-                                 min_pause_duration: float = 0.8, max_word_gap: float = 1.5) -> Tuple[Optional[str], Optional[str]]:
-        """
-        同时移除音频和视频中的停顿
-        
-        Args:
-            original_audio_url: 原始音频URL（用于ASR）
-            local_audio_path: 本地音频文件路径（用于处理）
-            video_path: 视频文件路径
-            min_pause_duration: 最小停顿时长(秒)
-            max_word_gap: 单词间最大间隔(秒)
-            
-        Returns:
-            Tuple[Optional[str], Optional[str]]: (处理后的音频路径, 处理后的视频路径)
-        """
-        if not self.volcengine_asr:
-            print("⚠️  ASR未初始化，跳过音视频停顿移除")
-            return None, None
-        
-        try:
-            print("🔍 开始音视频停顿检测和移除...")
-            
-            # 初始化停顿移除器
-            if not self.silence_remover:
-                self.silence_remover = ASRBasedSilenceRemover(min_pause_duration, max_word_gap)
-            
-            # 使用ASR转录音频，直接使用原始URL
-            print(f"[DEBUG] 使用原始音频URL进行ASR: {original_audio_url}")
-            print(f"[DEBUG] original_audio_url type: {type(original_audio_url)}")
-            print(f"[DEBUG] original_audio_url.startswith http: {original_audio_url.startswith('http')}")
-            
-            asr_result = self.volcengine_asr.transcribe_audio_for_silence_detection(original_audio_url)
-            
-            if not asr_result:
-                print("⚠️  ASR转录失败，跳过音视频停顿移除")
-                return None, None
-            
-            # 创建临时输出文件
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_audio:
-                output_audio_path = temp_audio.name
-            
-            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_video:
-                output_video_path = temp_video.name
-            
-            # 同时移除音频和视频的停顿
-            result = self.silence_remover.remove_pauses_from_audio_and_video(
-                local_audio_path, video_path, asr_result, output_audio_path, output_video_path
-            )
-            
-            if result['success']:
-                pause_stats = result['pause_statistics']
-                print(f"[OK] 音视频停顿移除完成:")
-                print(f"   - 移除停顿时长: {result['removed_duration']:.2f} 秒")
-                print(f"   - 停顿次数: {pause_stats['pause_count']}")
-                print(f"   - 平均停顿时长: {pause_stats['average_pause_duration']:.2f} 秒")
-                print(f"   - 处理后音频时长: {result['processed_duration']:.2f} 秒")
-                
-                return output_audio_path, output_video_path
-            else:
-                print("[ERROR] 音视频停顿移除失败")
-                # 清理临时文件
-                for path in [output_audio_path, output_video_path]:
-                    if os.path.exists(path):
-                        os.unlink(path)
-                return None, None
-                
-        except Exception as e:
-            print(f"[ERROR] 音视频停顿移除处理失败: {e}")
-            return None, None
-    
-    def _process_audio_pauses_with_asr_result(self, local_audio_path: str, asr_result: Dict[str, Any], 
-                                           pause_segments: List[Tuple[float, float]], 
-                                           min_pause_duration: float = 0.2, 
-                                           max_word_gap: float = 0.8, 
-                                           enable_secondary_asr: bool = True) -> Optional[str]:
-        """
-        基于ASR结果处理音频停顿
-        
-        Args:
-            local_audio_path: 本地音频文件路径
-            asr_result: ASR识别结果
-            pause_segments: 停顿段落列表
-            min_pause_duration: 最小停顿时长
-            max_word_gap: 最大单词间隔
-            enable_secondary_asr: 是否启用二次ASR重新生成字幕
-            
-        Returns:
-            处理后的音频文件路径
-        """
-        try:
-            print(f"[DEBUG] 开始基于ASR结果处理音频停顿")
-            print(f"[DEBUG] 停顿段落数量: {len(pause_segments)}")
-            
-            # 计算有声段落
-            total_duration = asr_result.get('duration', 0)
-            speech_segments = []
-            
-            if pause_segments:
-                # 构建有声段落
-                current_time = 0.0
-                
-                for pause_start, pause_end in pause_segments:
-                    if current_time < pause_start:
-                        speech_segments.append((current_time, pause_start))
-                    current_time = pause_end
-                
-                # 添加最后一段
-                if current_time < total_duration:
-                    speech_segments.append((current_time, total_duration))
-            
-            if not speech_segments:
-                print("[DEBUG] 没有有声段落，返回原始音频")
-                return local_audio_path
-            
-            print(f"[DEBUG] 有声段落数量: {len(speech_segments)}")
-            
-            # 使用FFmpeg提取有声段落
-            with tempfile.NamedTemporaryFile(suffix='.mp3', delete=False) as temp_file:
-                output_path = temp_file.name
-            
-            # 构建FFmpeg过滤图
-            filter_complex = []
-            
-            for i, (start, end) in enumerate(speech_segments):
-                duration = end - start
-                filter_complex.append(f'[0:a]atrim=start={start}:duration={duration},asetpts=PTS-STARTPTS[a{i}]')
-            
-            # 拼接所有段落
-            inputs = ''.join(f'[a{i}]' for i in range(len(speech_segments)))
-            filter_complex.append(f'{inputs}concat=n={len(speech_segments)}:v=0:a=1[out]')
-            
-            cmd = [
-                'ffmpeg',
-                '-i', local_audio_path,
-                '-filter_complex', ';'.join(filter_complex),
-                '-map', '[out]',
-                '-y',  # 覆盖输出文件
-                output_path
-            ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            
-            if result.returncode == 0:
-                # 计算移除的停顿时长
-                removed_duration = sum(end - start for start, end in pause_segments)
-                new_duration = sum(end - start for start, end in speech_segments)
-                
-                print(f"[DEBUG] 音频停顿处理完成:")
-                print(f"   - 原始时长: {total_duration:.2f} 秒")
-                print(f"   - 移除停顿: {removed_duration:.2f} 秒")
-                print(f"   - 新时长: {new_duration:.2f} 秒")
-                
-                # 二次ASR：对处理后的音频重新生成字幕
-                if enable_secondary_asr:
-                    print(f"[DEBUG] 启用二次ASR精确时间映射模式...")
-                    # 从ASR结果生成字幕对象
-                    original_subtitles = self.volcengine_asr.parse_result_to_subtitles(asr_result)
-                    self._apply_precise_timing_mapping(output_path, speech_segments, original_subtitles)
-                
-                return output_path
-            else:
-                print(f"[DEBUG] FFmpeg处理失败: {result.stderr}")
-                # 清理临时文件
-                if os.path.exists(output_path):
-                    os.unlink(output_path)
-                return None
-                
-        except Exception as e:
-            print(f"[DEBUG] 音频停顿处理失败: {e}")
-            return None
-    
-    def _process_video_pauses_by_segments_marking(self, input_video_path: str, pause_segments: List[Tuple[float, float]]) -> bool:
+    def _process_video_pauses_by_segments_marking(self, input_video_path: str, pause_segments: List[Tuple[float, float]], time_offset: float = 0.0) -> bool:
         """使用片段标记方式处理停顿（非破坏性编辑，不切割原视频）
         
         基于非破坏性编辑原理：
@@ -2044,7 +1733,7 @@ class VideoEditingWorkflow:
             for i, (source_start, source_end) in enumerate(valid_segments):
                 segment_duration = source_end - source_start
                 
-                print(f"[DEBUG] 添加片段 {i+1}: 源时间[{source_start:.3f}s-{source_end:.3f}s] -> 时间轴[{current_timeline_offset:.3f}s-{current_timeline_offset + segment_duration:.3f}s]")
+                print(f"[DEBUG] 添加片段 {i+1}: 源时间[{source_start:.3f}s-{source_end:.3f}s] -> 时间轴[{current_timeline_offset + time_offset:.3f}s-{current_timeline_offset + segment_duration + time_offset:.3f}s] (偏移: {time_offset:.6f}s)")
                 
                 # 创建VideoSegment，指定source_timerange和target_timerange
                 success = self._add_video_segment_with_source_range(
@@ -2052,7 +1741,8 @@ class VideoEditingWorkflow:
                     source_start=source_start,
                     source_duration=segment_duration,
                     target_start=current_timeline_offset,
-                    segment_index=i
+                    segment_index=i,
+                    time_offset=time_offset
                 )
                 
                 if success:
@@ -2067,9 +1757,10 @@ class VideoEditingWorkflow:
             print(f"[DEBUG] 所有片段添加完成，总时长: {total_planned_duration:.6f}s")
             
             # 更新视频和项目时长 - 使用计划总时长（标记法）
+            old_duration = self.video_duration
             self.video_duration = total_planned_duration
             self._update_project_duration()
-            print(f"[DEBUG] 更新视频时长为: {self.video_duration:.6f}s")
+            print(f"[VIDEO_DURATION] 非破坏性标记: {old_duration:.6f}s -> {self.video_duration:.6f}s (计划: {total_planned_duration:.6f}s)")
             print(f"[DEBUG] 更新项目时长为: {self.project_duration:.6f}s")
             
             print(f"[OK] 非破坏性片段标记处理完成")
@@ -2281,7 +1972,8 @@ class VideoEditingWorkflow:
     
     def _add_video_segment_with_source_range(self, video_path: str, 
                                            source_start: float, source_duration: float, 
-                                           target_start: float, segment_index: int) -> bool:
+                                           target_start: float, segment_index: int, 
+                                           time_offset: float = 0.0) -> bool:
         """使用VideoSegment添加指定源时间范围的视频片段（非破坏性编辑）
         
         Args:
@@ -2312,20 +2004,23 @@ class VideoEditingWorkflow:
                     return False
                 print(f"[DEBUG] 调整后源片段: [{source_start:.3f}s+{source_duration:.3f}s]")
             
+            # 应用时间偏移到目标时间
+            adjusted_target_start = target_start + time_offset
+            
             # 创建VideoSegment，指定源时间范围和目标时间范围
             # 使用更高精度避免帧数不匹配问题
             video_segment = draft.VideoSegment(
                 video_path,
-                # target_timerange: 在轨道上的位置
-                trange(tim(f"{target_start:.9f}s"), tim(f"{source_duration:.9f}s")),
+                # target_timerange: 在轨道上的位置（应用时间偏移）
+                trange(tim(f"{adjusted_target_start:.9f}s"), tim(f"{source_duration:.9f}s")),
                 # source_timerange: 从源视频中截取的范围
                 source_timerange=trange(tim(f"{source_start:.9f}s"), tim(f"{source_duration:.9f}s"))
             )
             
-            # 添加到数字人视频轨道
-            self.script.add_segment(video_segment, track_name="数字人视频轨道")
+            # 添加到主视频轨道（与数字人视频在同一轨道统一管理）
+            self.script.add_segment(video_segment, track_name="主视频轨道")
             
-            print(f"[DEBUG] 片段 {segment_index+1} 添加成功")
+            print(f"[DEBUG] 片段 {segment_index+1} 添加成功 (偏移: {time_offset:.6f}s)")
             return True
             
         except Exception as e:
@@ -2355,8 +2050,8 @@ class VideoEditingWorkflow:
                 source_timerange=trange(tim(f"{start_time:.9f}s"), tim(f"{duration:.9f}s"))
             )
             
-            # 添加到数字人视频轨道
-            self.script.add_segment(video_segment, track_name="数字人视频轨道")
+            # 添加到主视频轨道（与数字人视频在同一轨道统一管理）
+            self.script.add_segment(video_segment, track_name="主视频轨道")
             
             print(f"[DEBUG] 单个视频片段添加成功")
             return True
@@ -2366,7 +2061,8 @@ class VideoEditingWorkflow:
             return False
     
     def _adjust_subtitle_timings(self, original_subtitles: List[Dict[str, Any]], 
-                                pause_segments: List[Tuple[float, float]]) -> List[Dict[str, Any]]:
+                                pause_segments: List[Tuple[float, float]], 
+                                time_offset: float = 0.0) -> List[Dict[str, Any]]:
         """
         根据移除的停顿调整字幕时间轴
         
@@ -2403,6 +2099,10 @@ class VideoEditingWorkflow:
                 new_start = round(original_start - removed_time_before, 2)
                 new_end = round(original_end - removed_time_before, 2)
                 
+                # 应用时间偏移
+                new_start = round(new_start + time_offset, 2)
+                new_end = round(new_end + time_offset, 2)
+                
                 # 确保时间不为负（保持两位小数）
                 new_start = round(max(0, new_start), 2)
                 new_end = round(max(new_start, new_end), 2)
@@ -2417,7 +2117,7 @@ class VideoEditingWorkflow:
                 
                 print(f"[DEBUG] 字幕调整: {subtitle['text']}")
                 print(f"   原始时间: {original_start:.2f}s - {original_end:.2f}s")
-                print(f"   调整时间: {new_start:.2f}s - {new_end:.2f}s")
+                print(f"   调整时间: {new_start:.2f}s - {new_end:.2f}s (偏移: {time_offset:.6f}s)")
             
             print(f"[DEBUG] 字幕时间轴调整完成，共 {len(adjusted_subtitles)} 段字幕")
             return adjusted_subtitles
@@ -2426,100 +2126,261 @@ class VideoEditingWorkflow:
             print(f"[DEBUG] 字幕时间轴调整失败: {e}")
             return original_subtitles  # 失败时返回原始字幕
 
-    def _apply_precise_timing_mapping(self, processed_audio_path: str, 
-                                    speech_segments: List[Tuple[float, float]], 
-                                    original_subtitles: List[Dict[str, Any]]) -> None:
-        """
-        应用精确的时间映射，基于音频波峰分析调整字幕时间
+    def add_cover(self, cover_image_path: str = None, frames: int = 2, fps: int = 30, 
+                  top_text: str = None, bottom_text: str = None):
+        """完整的封面添加功能
         
         Args:
-            processed_audio_path: 处理后的音频文件路径
-            speech_segments: 有声段落列表
-            original_subtitles: 原始字幕列表
-        """
-        try:
-            print(f"[DEBUG] 开始精确时间映射...")
-            print(f"[DEBUG] 音频文件: {processed_audio_path}")
-            print(f"[DEBUG] 有声段落: {len(speech_segments)} 个")
-            print(f"[DEBUG] 原始字幕: {len(original_subtitles)} 个")
-            
-            # 为每个有声段落创建时间映射
-            segment_mappings = []
-            processed_time_offset = 0.0
-            
-            for i, (original_start, original_end) in enumerate(speech_segments):
-                segment_duration = original_end - original_start
-                
-                # 创建这个段落的时间映射
-                segment_mapping = {
-                    'original_start': original_start,
-                    'original_end': original_end,
-                    'processed_start': processed_time_offset,
-                    'processed_end': processed_time_offset + segment_duration,
-                    'segment_index': i
-                }
-                segment_mappings.append(segment_mapping)
-                processed_time_offset += segment_duration
-                
-                print(f"[DEBUG] 段落{i+1}: 原始[{original_start:.3f}s-{original_end:.3f}s] -> 处理后[{segment_mapping['processed_start']:.3f}s-{segment_mapping['processed_end']:.3f}s]")
-            
-            # 应用精确的字幕时间映射
-            precisely_timed_subtitles = []
-            
-            for subtitle in original_subtitles:
-                original_sub_start = subtitle['start']
-                original_sub_end = subtitle['end']
-                
-                # 找到字幕所属的段落
-                mapped_start = self._map_time_to_processed_audio(original_sub_start, segment_mappings)
-                mapped_end = self._map_time_to_processed_audio(original_sub_end, segment_mappings)
-                
-                if mapped_start is not None and mapped_end is not None:
-                    precise_subtitle = {
-                        'text': subtitle['text'],
-                        'start': mapped_start,
-                        'end': mapped_end
-                    }
-                    precisely_timed_subtitles.append(precise_subtitle)
-                    
-                    print(f"[DEBUG] 精确映射: '{subtitle['text']}' {original_sub_start:.3f}s-{original_sub_end:.3f}s -> {mapped_start:.3f}s-{mapped_end:.3f}s")
-            
-            # 保存精确映射的字幕
-            if precisely_timed_subtitles:
-                self.secondary_asr_subtitles = precisely_timed_subtitles
-                self.adjusted_subtitles = precisely_timed_subtitles
-                print(f"[OK] 精确时间映射完成，生成 {len(precisely_timed_subtitles)} 个精确字幕")
-            else:
-                print("[WARN] 精确时间映射未生成任何字幕")
-                
-        except Exception as e:
-            print(f"[ERROR] 精确时间映射失败: {e}")
-    
-    def _map_time_to_processed_audio(self, original_time: float, 
-                                   segment_mappings: List[Dict[str, Any]]) -> Optional[float]:
-        """
-        将原始时间映射到处理后音频的时间
-        
-        Args:
-            original_time: 原始音频中的时间点
-            segment_mappings: 段落映射列表
+            cover_image_path: 封面图片路径，如果为None则使用默认路径
+            frames: 封面帧数，默认2帧
+            fps: 帧率，默认30fps
+            top_text: 上方字幕文本
+            bottom_text: 下方字幕文本
             
         Returns:
-            处理后音频中的对应时间点
+            dict: 封面处理结果
+                {
+                    'success': bool,          # 是否成功
+                    'cover_duration': float,  # 封面时长（秒）
+                    'time_offset': float,     # 时间偏移量（秒）
+                    'cover_enabled': bool     # 封面是否启用
+                }
         """
-        for mapping in segment_mappings:
-            if mapping['original_start'] <= original_time <= mapping['original_end']:
-                # 计算在段落内的相对位置
-                relative_position = (original_time - mapping['original_start']) / \
-                                  (mapping['original_end'] - mapping['original_start'])
-                
-                # 映射到处理后的时间
-                processed_duration = mapping['processed_end'] - mapping['processed_start']
-                mapped_time = mapping['processed_start'] + (relative_position * processed_duration)
-                
-                return mapped_time
+        result = {
+            'success': False,
+            'cover_duration': 0.0,
+            'time_offset': 0.0,
+            'cover_enabled': False
+        }
         
-        return None
+        # 检查是否启用封面
+        if not cover_image_path and not top_text and not bottom_text:
+            print("[INFO] 未提供封面参数，跳过封面添加")
+            result['success'] = True  # 未启用也算成功
+            return result
+        
+        try:
+            # 1. 启用封面功能
+            self.enable_cover(cover_image_path, frames, fps)
+            self.cover_enabled = True  # 确保启用封面
+            result['cover_enabled'] = True
+            result['cover_duration'] = self.cover_duration
+            result['time_offset'] = self.cover_duration
+            
+            print(f"[INFO] 开始添加封面...")
+            
+            # 2. 添加封面图片（如果提供了图片路径）
+            if cover_image_path:
+                image_segment = self.add_cover_image()
+                if image_segment is None:
+                    print("[WARN] 封面图片添加失败，继续添加字幕")
+                else:
+                    print(f"[OK] 封面图片添加成功")
+            
+            # 3. 添加封面字幕（如果提供了字幕文本）
+            if top_text or bottom_text:
+                subtitle_segments = self.add_cover_subtitles(top_text, bottom_text)
+                if subtitle_segments:
+                    print(f"[OK] 封面字幕添加成功: {len(subtitle_segments)} 段")
+                else:
+                    print("[WARN] 封面字幕添加失败")
+            
+            # 4. 设置时间偏移，供后续内容使用
+            self.time_offset = self.cover_duration
+
+            
+            result['success'] = True
+            print(f"[OK] 封面添加完成")
+            print(f"   - 封面时长: {self.cover_duration:.6f}秒")
+            print(f"   - 后续内容时间偏移: {self.time_offset:.6f}秒")
+            print(f"   - 封面图片: {'已添加' if cover_image_path else '未添加'}")
+            print(f"   - 封面字幕: {'已添加' if (top_text or bottom_text) else '未添加'}")
+            
+            return result
+            
+        except Exception as e:
+            print(f"[ERROR] 封面添加失败: {e}")
+            import traceback
+            print(f"[ERROR] 错误详情: {traceback.format_exc()}")
+            return result
+
+    def enable_cover(self, cover_image_path: str = None, frames: int = 2, fps: int = 30):
+        """启用封面功能
+        
+        Args:
+            cover_image_path: 封面图片路径，如果为None则使用默认路径
+            frames: 封面帧数，默认2帧
+            fps: 帧率，默认30fps
+        """
+        self.cover_enabled = True
+        self.cover_duration = frames / fps  # 计算封面时长
+        
+        if cover_image_path is None:
+            # 使用默认封面路径
+            current_dir = os.path.dirname(os.path.abspath(__file__))
+            project_root = os.path.join(current_dir, '..', '..')
+            self.cover_image_path = os.path.join(project_root, 'resource', '查封面.jpg')
+        else:
+            # 使用传入的封面路径
+            if not os.path.isabs(cover_image_path):
+                # 如果是相对路径，相对于项目根目录
+                current_dir = os.path.dirname(os.path.abspath(__file__))
+                project_root = os.path.join(current_dir, '..', '..')
+                self.cover_image_path = os.path.join(project_root, cover_image_path)
+            else:
+                # 绝对路径直接使用
+                self.cover_image_path = cover_image_path
+        
+        print(f"[INFO] 封面已启用: 时长{self.cover_duration:.3f}秒 ({frames}帧@{fps}fps)")
+        print(f"[INFO] 封面图片路径: {self.cover_image_path}")
+    
+    def add_cover_image(self):
+        """添加封面图片到主视频轨道"""
+        if not self.cover_enabled or not self.cover_image_path:
+            return None
+        
+        if not os.path.exists(self.cover_image_path):
+            print(f"[ERROR] 封面图片不存在: {self.cover_image_path}")
+            return None
+        
+        try:
+            # 创建图片素材（使用VideoMaterial处理图片）
+            image_material = draft.VideoMaterial(self.cover_image_path)
+            
+            # 创建图片片段，从0开始
+            image_segment = draft.VideoSegment(
+                image_material,
+                draft.trange(draft.tim("0s"), draft.tim(f"{self.cover_duration:.6f}s"))
+            )
+            
+            # 添加到主视频轨道
+            self.script.add_segment(image_segment, track_name="主视频轨道")
+            
+            print(f"[OK] 封面图片已添加: {os.path.basename(self.cover_image_path)}")
+            return image_segment
+            
+        except Exception as e:
+            print(f"[ERROR] 添加封面图片失败: {e}")
+            return None
+    
+    def add_cover_subtitles(self, top_text: str = None, bottom_text: str = None):
+        """添加封面字幕
+        
+        Args:
+            top_text: 上方字幕文本（添加到标题字幕轨道）
+            bottom_text: 下方字幕文本（添加到内容字幕轨道）
+        """
+        if not self.cover_enabled:
+            return []
+        
+        segments = []
+        
+        try:
+            # 添加上方字幕到标题字幕轨道
+            if top_text:
+                top_segment = draft.TextSegment(
+                    top_text,
+                    draft.trange(draft.tim("0s"), draft.tim(f"{self.cover_duration:.6f}s")),
+                    font=draft.FontType.阳华体,
+                    style=draft.TextStyle(
+                        size=15.0,
+                        color=(1.0, 1.0, 1.0),  # 白色
+                        bold=True,
+                        align=0,  # 居中对齐
+                       
+                        max_line_width=0.9
+                    ),
+                    clip_settings=draft.ClipSettings(transform_y=0.55, scale_x=1.9, scale_y=1.9)  # 上方位置
+                )
+                self.script.add_segment(top_segment, track_name="标题字幕轨道")
+                segments.append(top_segment)
+                print(f"[OK] 封面上方字幕已添加: {top_text}")
+            
+            # 添加下方字幕到内容字幕轨道（分两段：第一段黄色高亮，第二段白色）
+            if bottom_text:
+                # 将文本分为两段，用换行符分隔
+                text_parts = bottom_text.split('\n', 1)  # 最多分割一次
+                if len(text_parts) == 1:
+                    # 如果没有换行符，默认第一段为前一半，第二段为后一半
+                    mid_point = len(bottom_text) // 2
+                    # 寻找合适的分割点（空格或标点）
+                    for i in range(mid_point - 5, mid_point + 5):
+                        if i < len(bottom_text) and bottom_text[i] in [' ', '，', '。', '！', '？', '、']:
+                            mid_point = i + 1
+                            break
+                    text_parts = [bottom_text[:mid_point], bottom_text[mid_point:]]
+                
+                first_part = text_parts[0].strip()
+                second_part = text_parts[1].strip() if len(text_parts) > 1 else ""
+                
+                # 组合文本：第一段 + 换行 + 第二段
+                combined_text = first_part + "\n      " + second_part if second_part else first_part
+                
+                # 创建富文本样式
+                highlight_ranges = []
+                
+                # 第一段：黄色高亮
+                if first_part:
+                    highlight_ranges.append(draft.TextStyleRange(
+                        start=0,
+                        end=len(first_part),
+                        color=(1.0, 0.9372549019607843, 0.1725490196078431),  # #ffef2c 黄色高亮
+                        size=14,
+                        bold=True,
+                        italic=False,
+                        underline=False
+                    ))
+                
+                # 第二段：白色（如果有的话）
+                if second_part:
+                    second_start = len(first_part) + 1  # +1 是换行符
+                    highlight_ranges.append(draft.TextStyleRange(
+                        start=second_start,
+                        end=second_start + len(second_part),
+                        color=(1.0, 1.0, 1.0),  # 白色
+                        size=14,
+                        bold=True,
+                        italic=False,
+                        underline=False
+                    ))
+                
+                bottom_segment = draft.TextSegment(
+                    combined_text,
+                    draft.trange(draft.tim("0s"), draft.tim(f"{self.cover_duration:.6f}s")),
+                    font=draft.FontType.点宋体,
+                    style=draft.TextStyle(
+                        size=14,
+                        color=(1.0, 1.0, 1.0),  # 默认白色
+                        bold=True,
+                        align=0,  # 左对齐
+                        max_line_width=0.9,
+                        line_spacing=4  # 行间距4
+                    ),
+                    clip_settings=draft.ClipSettings(transform_y=-0.48, scale_x=1.21, scale_y=1.21),  # 下方位置
+                    shadow=draft.TextShadow(
+                        alpha=0.8,
+                        color=(0.0, 0.0, 0.0),
+                        diffuse=20.0,
+                        distance=10.0,
+                        angle=-45.0
+                    )
+                )
+                
+                # 手动设置高亮范围
+                bottom_segment.highlight_ranges = highlight_ranges
+                self.script.add_segment(bottom_segment, track_name="内容字幕轨道")
+                segments.append(bottom_segment)
+                print(f"[OK] 封面下方字幕已添加（分两段）: '{first_part}' + '{second_part}'")
+            
+            print(f"[INFO] 📝 封面字幕已添加: 上方='{top_text}', 下方='{bottom_text}'")
+            
+        except Exception as e:
+            print(f"[ERROR] 添加封面字幕失败: {e}")
+        
+        return segments
+    
+   
+    
 
 
 def main():
@@ -2527,29 +2388,25 @@ def main():
     # 配置剪映草稿文件夹路径（需要根据实际情况修改）
     draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
     
-    print("[INFO] 音频转录智能字幕工作流 + AI关键词高亮 + 背景音乐")
-    print("=" * 60)
-    print("自动转录音频并生成智能字幕，使用AI识别关键词进行高亮显示，并添加华尔兹背景音乐")
-    
     # 创建工作流实例
     workflow = VideoEditingWorkflow(draft_folder_path, "audio_transcription_demo")
     
     # 配置华尔兹背景音乐路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.join(current_dir, '..', '..')
-    background_music_path = os.path.join(project_root, '华尔兹.mp3')
+    background_music_path = os.path.join(project_root, 'resource/华尔兹.mp3')
     
     # 配置输入参数
     inputs = {
         # 'digital_video_url': 'https://oss.oemi.jdword.com/prod/order/video/202509/V20250901153106001.mp4',
         # 'audio_url': 'https://oss.oemi.jdword.com/prod/temp/srt/V20250901152556001.wav',
         # 'title': '火山引擎ASR智能字幕演示',
-        "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
+        # "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
         "content": "买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话",
         "title": "买房子该怎么买，一定要牢记",
         "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224537001.mp4",     
 
-
+        
         # 🔥 火山引擎ASR配置（用于语音识别）
         'volcengine_appid': '6046310832',                # 火山引擎ASR AppID
         'volcengine_access_token': 'fMotJVOsyk6K_dDRoqM14kGdMJYBrcJY',  # 火山引擎ASR AccessToken
@@ -2560,11 +2417,32 @@ def main():
         
         # [INFO] 背景音乐配置
         'background_music_path': background_music_path,  # 华尔兹.mp3路径
-        'background_music_volume': 0.25,  # 背景音乐音量
+        'background_music_volume': 0.25,  # 背景音乐音量,
+
+        # 1.1 处理封面（如果提供了 cover_short_title/cover_image_path/cover_bottom_text）
+        'cover_short_title': '买房须知',
+        'cover_image_path': 'resource/查封面.jpg',
+        'cover_bottom_text': '买房子该怎么买\n     一定要牢记'
+        
     }
     
     try:
         print(f"\n[INFO] 开始处理工作流...")
+        
+        # 先创建草稿
+        workflow.create_draft()
+        print(f"[OK] 草稿创建成功")
+        
+        # 添加封面
+        # cover_result = workflow.add_cover(
+        #     cover_image_path="resource/查封面.jpg",
+        #     frames=2,
+        #     fps=30,
+        #     top_text="买房须知",
+        #     bottom_text="买房子该怎么买\n     一定要牢记"
+        # )
+        # 计算封面时长作为时间偏移
+        # cover_duration = cover_result['cover_duration']
         save_path = workflow.process_workflow(inputs)
         print(f"\n[OK] 音频转录工作流完成!")
         print(f"剪映项目已保存到: {save_path}")
@@ -2576,5 +2454,146 @@ def main():
         traceback.print_exc()
 
 
+
+def test_cover_function():
+    """测试封面功能"""
+    print("="*60)
+    print("封面功能测试")
+    print("="*60)
+    
+    # 配置剪映草稿文件夹路径
+    draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
+    
+    # 创建工作流实例
+    workflow = VideoEditingWorkflow(draft_folder_path, "cover_test")
+    
+    try:
+        # 1. 创建草稿
+        workflow.create_draft()
+        print("[OK] 草稿创建成功")
+        
+        # 2. 测试封面功能
+        cover_result = workflow.add_cover(
+            cover_image_path="resource/查封面.jpg",
+            frames=2,
+            fps=30,
+            top_text="买房须知",
+            bottom_text="买房子该怎么买\n     一定要牢记"
+        )
+        
+        print(f"\n封面处理结果:")
+        print(f"  - 成功: {cover_result['success']}")
+        print(f"  - 封面时长: {cover_result['cover_duration']:.6f}秒")
+        print(f"  - 时间偏移: {cover_result['time_offset']:.6f}秒")
+        print(f"  - 封面启用: {cover_result['cover_enabled']}")
+        
+        # 3. 保存草稿
+        workflow.script.save()
+        print(f"\n[OK] 封面测试完成！")
+        print("请打开剪映查看生成的封面项目")
+        
+    except Exception as e:
+        print(f"[ERROR] 封面测试失败: {e}")
+        import traceback
+        traceback.print_exc()
+
+    def _align_all_tracks_with_main_track(self, time_offset: float = 0.0):
+        """确保所有轨道都与主轴对齐且不得超过主轴
+        
+        Args:
+            time_offset: 时间偏移（秒）
+        """
+        if not self.script:
+            print("[WARN] 草稿不存在，跳过轨道对齐处理")
+            return
+        
+        # 获取主轴（主视频轨道）的时长
+        main_track_duration = self.get_effective_video_duration()
+        if main_track_duration <= 0:
+            print("[WARN] 主轴时长无效，跳过轨道对齐处理")
+            return
+        
+        # 计算主轴的时间范围
+        main_track_start = time_offset
+        main_track_end = time_offset + main_track_duration
+        
+        print(f"[TRACK_ALIGNMENT] 主轴时间范围: {main_track_start:.6f}s - {main_track_end:.6f}s (时长: {main_track_duration:.6f}s)")
+        
+        # 需要检查的轨道列表
+        tracks_to_check = [
+            "音频轨道",
+            "背景音乐轨道", 
+            "内容字幕轨道",
+            "标题字幕轨道",
+            "内容字幕背景",
+            "标题字幕背景"
+        ]
+        
+        alignment_count = 0
+        
+        for track_name in tracks_to_check:
+            try:
+                if track_name in self.script.tracks:
+                    track = self.script.tracks[track_name]
+                    segments_adjusted = 0
+                    
+                    for segment in track.segments:
+                        # 获取片段的当前时间范围
+                        current_start = segment.time_range.start / 1000000  # 转换为秒
+                        current_duration = segment.time_range.duration / 1000000  # 转换为秒
+                        current_end = current_start + current_duration
+                        
+                        # 检查是否需要调整
+                        needs_adjustment = False
+                        new_start = current_start
+                        new_end = current_end
+                        
+                        # 如果片段开始时间早于主轴开始时间，调整到主轴开始时间
+                        if current_start < main_track_start:
+                            new_start = main_track_start
+                            needs_adjustment = True
+                        
+                        # 如果片段结束时间晚于主轴结束时间，调整到主轴结束时间
+                        if current_end > main_track_end:
+                            new_end = main_track_end
+                            needs_adjustment = True
+                        
+                        # 如果片段完全在主轴范围外，跳过
+                        if current_end <= main_track_start or current_start >= main_track_end:
+                            print(f"[TRACK_ALIGNMENT] {track_name} 片段超出主轴范围，跳过")
+                            continue
+                        
+                        # 应用调整
+                        if needs_adjustment:
+                            new_duration = new_end - new_start
+                            if new_duration > 0:
+                                # 更新片段的时间范围
+                                segment.time_range = draft.trange(
+                                    draft.tim(f"{new_start:.9f}s"),
+                                    draft.tim(f"{new_duration:.9f}s")
+                                )
+                                segments_adjusted += 1
+                                
+                                print(f"[TRACK_ALIGNMENT] {track_name} 片段调整: {current_start:.6f}s-{current_end:.6f}s -> {new_start:.6f}s-{new_end:.6f}s")
+                    
+                    if segments_adjusted > 0:
+                        alignment_count += 1
+                        print(f"[TRACK_ALIGNMENT] {track_name}: 调整了 {segments_adjusted} 个片段")
+                    else:
+                        print(f"[TRACK_ALIGNMENT] {track_name}: 无需调整")
+                        
+                else:
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 轨道不存在，跳过")
+                    
+            except Exception as e:
+                print(f"[ERROR] 调整轨道 {track_name} 时出错: {e}")
+        
+        print(f"[TRACK_ALIGNMENT] 轨道对齐处理完成，共调整了 {alignment_count} 个轨道")
+
+
 if __name__ == "__main__":
+    # 运行主工作流
     main()
+    
+    # 运行封面功能测试
+    # test_cover_function()

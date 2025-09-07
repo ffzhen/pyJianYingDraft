@@ -316,13 +316,14 @@ class CozeVideoWorkflow:
                 'doubao_token': self.doubao_token,  # 豆包API token
                 'doubao_model': self.doubao_model,  # 豆包模型接入点
                 
-                # 可选参数
-                'subtitle_delay': 0.0,
-                'subtitle_speed': 1.0,
                 
                 # 背景音乐配置（如果已设置）
-                'background_music_path': self.background_music_path,
+                'background_music_path': 'resource/华尔兹.mp3',
                 'background_music_volume': self.background_music_volume,
+
+                'cover_short_title':actual_data.get('shortTitle', ''),
+                'cover_image_path': 'resource/查封面.jpg',
+                'cover_bottom_text':actual_data.get('wrapTitle', ''),
             }
             
             # 执行视频合成
