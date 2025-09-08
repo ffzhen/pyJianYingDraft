@@ -62,12 +62,33 @@ class CozeVideoWorkflow:
         self.base_project_name = project_name
         self.video_workflow = None  # 稍后初始化
         
+        # 为并发安全，生成唯一的项目名称
+        self._generate_unique_project_name()
+        
         # 记录开始时间
         self.start_time = datetime.now()
         
         # 背景音乐配置
         self.background_music_path = None
         self.background_music_volume = 0.3
+    
+    def _generate_unique_project_name(self):
+        """生成唯一的项目名称，避免并发冲突"""
+        import time
+        import random
+        import threading
+        
+        # 使用时间戳、随机数和线程ID确保唯一性
+        timestamp = int(time.time() * 1000)  # 毫秒时间戳
+        random_suffix = random.randint(1000, 9999)
+        thread_id = threading.get_ident() % 10000  # 线程ID后4位
+        
+        if self.base_project_name:
+            self.project_name = f"{self.base_project_name}_{timestamp}_{random_suffix}_{thread_id}"
+        else:
+            self.project_name = f"coze_video_{timestamp}_{random_suffix}_{thread_id}"
+        
+        print(f"[INFO] 生成唯一项目名称: {self.project_name}")
         
         # 豆包API配置
         self.doubao_token = 'adac0afb-5fd4-4c66-badb-370a7ff42df5'
@@ -419,7 +440,7 @@ def main():
     )
     
     # 设置背景音乐（可选）
-    background_music_path = os.path.join(os.path.dirname(__file__), '..', '..', '华尔兹.mp3')
+    background_music_path = os.path.join(os.path.dirname(__file__), '..', '..', 'resource', '华尔兹.mp3')
     if os.path.exists(background_music_path):
         workflow.set_background_music(background_music_path, volume=0.3)
         log_with_time(f"✅ 背景音乐已加载: {background_music_path}", start_time)

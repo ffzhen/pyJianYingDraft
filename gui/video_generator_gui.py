@@ -24,10 +24,22 @@ import uuid
 
 # 添加项目根目录到路径
 import sys
-sys.path.append(os.path.join(os.path.dirname(__file__), '../..'))
+# 将项目根目录的绝对路径加入 sys.path，确保可导入 workflow 包
+# 项目根目录是当前文件上一级目录（gui 的父级）
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.insert(0, PROJECT_ROOT)
 
-from workflow.examples.coze_complete_video_workflow import CozeVideoWorkflow
-from workflow.component.flow_python_implementation import VideoEditingWorkflow
+# 兼容导入：优先按包路径导入，失败则直接将 workflow 目录加入路径后相对导入
+try:
+    from workflow.examples.coze_complete_video_workflow import CozeVideoWorkflow
+    from workflow.component.flow_python_implementation import VideoEditingWorkflow
+except ImportError:
+    WORKFLOW_DIR = os.path.join(PROJECT_ROOT, 'workflow')
+    if WORKFLOW_DIR not in sys.path:
+        sys.path.insert(0, WORKFLOW_DIR)
+    from examples.coze_complete_video_workflow import CozeVideoWorkflow
+    from component.flow_python_implementation import VideoEditingWorkflow
 
 class VideoGeneratorGUI:
     """视频生成器GUI主类"""

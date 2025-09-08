@@ -6,8 +6,8 @@
   "homepage": "./",
   "scripts": {
     "start": "electron .",
-    "dev": "concurrently \"npm run dev:renderer\" \"npm run dev:main\"",
-    "dev:main": "cross-env NODE_ENV=development wait-on http://localhost:5173 && electron .",
+    "dev": "concurrently \"npm run dev:main\" \"npm run dev:renderer\"",
+    "dev:main": "electron main/main.js",
     "dev:renderer": "vite",
     "build": "vite build",
     "build:electron": "npm run build && electron-builder",

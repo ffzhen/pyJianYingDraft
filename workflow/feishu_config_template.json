@@ -23,7 +23,7 @@
           {
             "field_name": "状态",
             "operator": "is",
-            "value": "视频草稿生成"
+            "value": ["视频草稿生成"]
           }
         ]
       }
@@ -46,8 +46,8 @@
   },
   "workflow_config": {
     "max_workers": 2,
-    "background_music_path": "华尔兹.mp3",
-    "background_music_volume": 0.3,
+    "volcengine_appid": "6046310832",          
+    "volcengine_access_token": "fMotJVOsyk6K_dDRoqM14kGdMJYBrcJY",  
     "doubao_token": "adac0afb-5fd4-4c66-badb-370a7ff42df5",
     "doubao_model": "ep-m-20250902010446-mlwmf",
     "draft_folder_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft",
@@ -55,8 +55,8 @@
       "token": "pat_gTpRj94iJ22c66yAYIVB8QPTjOm9V0STxvakT8OTZoV5Bb4GTkEBEXuEcdcJARId",
       "workflow_id": "7545326358185525248"
     },
-    "max_coze_concurrent": 16,
-    "max_synthesis_workers": 4,
+    "max_coze_concurrent": 8,
+    "max_synthesis_workers": 2,
     "poll_interval": 30
   }
 }

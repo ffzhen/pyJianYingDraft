@@ -1,0 +1,54 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "悄悄买房，这句话的含义你慢慢就懂了！",
+      "project_name": "查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_134255",
+      "record_id": "recuVQQsN5IJTE",
+      "status": "finished",
+      "execute_id": "7547589707040440374",
+      "submit_time": "2025-09-08T13:42:55.600319",
+      "complete_time": "2025-09-08T13:45:56.870780",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908133924001.wav\",\"content\":\"其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。\",\"recordId\":\"\",\"shortTitle\":\"买房抉择\",\"tableId\":\"\",\"title\":\"买房该听他人意见还是遵从自己喜好\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908134535001.mp4\",\"wrapTitle\":\"买房该听他人意见\\n 还是遵从自己喜好\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_134255_20250908_134556\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_2": {
+      "task_id": "task_2",
+      "content": "房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "这个环境，都是一把辛酸泪呀",
+      "project_name": "查_这个环境，都是一把辛酸泪呀_20250908_134255",
+      "record_id": "recuVQQtgd0VxD",
+      "status": "finished",
+      "execute_id": "7547589709268303918",
+      "submit_time": "2025-09-08T13:42:55.556623",
+      "complete_time": "2025-09-08T13:46:27.106589",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908133859001.wav\",\"content\":\"房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。\",\"recordId\":\"\",\"shortTitle\":\"卖房心酸\",\"tableId\":\"\",\"title\":\"房东卖房借口背后藏着多少心酸\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908134607001.mp4\",\"wrapTitle\":\"房东卖房借口背后\\n      藏着多少心酸\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_这个环境，都是一把辛酸泪呀_20250908_134255_20250908_134627\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 2,
+    "submitted_tasks": 2,
+    "completed_tasks": 2,
+    "failed_tasks": 0,
+    "start_time": "2025-09-08T13:42:55.169743",
+    "end_time": "2025-09-08T13:46:57.114260"
+  }
+}

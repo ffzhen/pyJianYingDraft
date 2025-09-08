@@ -249,7 +249,7 @@ def create_default_filter():
             {
                 "field_name": "状态",
                 "operator": "is",
-                "value": "待处理"
+                "value": ["待处理"]
             }
         ]
     }

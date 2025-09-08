@@ -1,0 +1,285 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "手里有房的朋友，尤其是住老房子的，听好了——你的好机会来了！\n不管你在一线、二线，还是县城，只要你手里有房，特别是房龄在十五到三十年之间的“老破小”，这波红利，你真的不能错过。\n因为全国范围的“以旧换新”，已经正式启动！\n什么叫以旧换新？很简单——你的旧房，政府来收；你的新房，直接换！\n但注意，不是按你心里的高价收，而是按最近三年的市场评估价。你原来以为能卖到每平米二万八，现在可能只给二万。而且，还不是给现金，是给“房票”。\n目前，全国将近二百个城市已经试点。房票换房，以购带建——这就是未来三年楼市的主旋律。\n那问题来了：收，还是不收？换，还是不换？\n房票怎么用？亏不亏？怎么换才最划算？",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了",
+      "project_name": "查_手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了_20250908_011010",
+      "record_id": "recuVOced36TiW",
+      "status": "finished",
+      "execute_id": "7547395748780343305",
+      "submit_time": "2025-09-08T01:10:11.206287",
+      "complete_time": "2025-09-08T01:20:45.913113",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010652001.wav\",\"content\":\"手里有房的朋友，尤其是住老房子的，听好了——你的好机会来了！\\n不管你在一线、二线，还是县城，只要你手里有房，特别是房龄在十五到三十年之间的“老破小”，这波红利，你真的不能错过。\\n因为全国范围的“以旧换新”，已经正式启动！\\n什么叫以旧换新？很简单——你的旧房，政府来收；你的新房，直接换！\\n但注意，不是按你心里的高价收，而是按最近三年的市场评估价。你原来以为能卖到每平米二万八，现在可能只给二万。而且，还不是给现金，是给“房票”。\\n目前，全国将近二百个城市已经试点。房票换房，以购带建——这就是未来三年楼市的主旋律。\\n那问题来了：收，还是不收？换，还是不换？\\n房票怎么用？亏不亏？怎么换才最划算？\",\"recordId\":\"\",\"shortTitle\":\"老房换新疑\",\"tableId\":\"\",\"title\":\"老房以旧换新按评估价收房票划算吗\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011949001.mp4\",\"wrapTitle\":\"老房以旧换新按评估价收房票\\n       划算吗\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_手里有房的，要恭喜你了。特别是手里多套房的，你终于等到了_20250908_011010_20250908_012045\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_2": {
+      "task_id": "task_2",
+      "content": "中国以后还会有大规模拆迁吗？答案是：会。\n从二零二五年开始，国家将把拆迁改造范围从三十个城市扩大到三百个，全面推进城中村和老旧小区更新，并重新提倡“货币化安置”——也就是直接发放现金补偿。\n这意味着，一批拆迁户将获得数百万元甚至上千万元的补偿款，确实有可能成为千万富翁。但关键在于钱怎么用：用于改善住房或稳健配置，财富才能留存；若盲目消费或投机，也可能“一夜暴富、转眼归零”。\n与过去不同，这一轮改造有两个重要变化：\n一是“多拆少建”。当前全国房产库存偏高，拆旧不等于大建，而是严控新增供应。\n二是“拆小建大”。拆除的主要是老破小，新建的则是大面积、改善型、舒适型住宅，推动居住品质升级。\n目前小户型库存充足，能满足刚需，政策重心已转向支持改善型需求。\n这一轮不是简单拆迁，而是通过城市更新优化住房结构、激活内需、带动经济。\n面对这笔补偿款，理性规划比一时致富更重要。\n理解政策方向，才能真正把握时代红利。",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "中国还会大规模拆迁吗？",
+      "project_name": "查_中国还会大规模拆迁吗？_20250908_011010",
+      "record_id": "recuVOdvxkkmCd",
+      "status": "finished",
+      "execute_id": "7547395746233712678",
+      "submit_time": "2025-09-08T01:10:11.207859",
+      "complete_time": "2025-09-08T01:23:48.691749",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010651001.wav\",\"content\":\"中国以后还会有大规模拆迁吗？答案是：会。\\n从二零二五年开始，国家将把拆迁改造范围从三十个城市扩大到三百个，全面推进城中村和老旧小区更新，并重新提倡“货币化安置”——也就是直接发放现金补偿。\\n这意味着，一批拆迁户将获得数百万元甚至上千万元的补偿款，确实有可能成为千万富翁。但关键在于钱怎么用：用于改善住房或稳健配置，财富才能留存；若盲目消费或投机，也可能“一夜暴富、转眼归零”。\\n与过去不同，这一轮改造有两个重要变化：\\n一是“多拆少建”。当前全国房产库存偏高，拆旧不等于大建，而是严控新增供应。\\n二是“拆小建大”。拆除的主要是老破小，新建的则是大面积、改善型、舒适型住宅，推动居住品质升级。\\n目前小户型库存充足，能满足刚需，政策重心已转向支持改善型需求。\\n这一轮不是简单拆迁，而是通过城市更新优化住房结构、激活内需、带动经济。\\n面对这笔补偿款，理性规划比一时致富更重要。\\n理解政策方向，才能真正把握时代红利。\",\"recordId\":\"\",\"shortTitle\":\"拆迁财富关\",\"tableId\":\"\",\"title\":\"拆迁暴富后盲目消费能否守住财富\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908012301001.mp4\",\"wrapTitle\":\"拆迁暴富后盲目消费/n       能否守住财富\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_中国还会大规模拆迁吗？_20250908_011010_20250908_012348\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_3": {
+      "task_id": "task_3",
+      "content": "买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "买房子该怎么买，一定要牢记",
+      "project_name": "查_买房子该怎么买，一定要牢记_20250908_011010",
+      "record_id": "recuVOeYymP9O2",
+      "status": "finished",
+      "execute_id": "7547395748683399218",
+      "submit_time": "2025-09-08T01:10:11.201996",
+      "complete_time": "2025-09-08T01:14:43.936166",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010705001.wav\",\"content\":\"买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话\",\"recordId\":\"\",\"shortTitle\":\"买房抉择\",\"tableId\":\"\",\"title\":\"买房该选贵处低价房还是贱处高价房\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011407001.mp4\",\"wrapTitle\":\"买房该选贵处低价房\\n还是贱处高价房\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_买房子该怎么买，一定要牢记_20250908_011010_20250908_011444\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_4": {
+      "task_id": "task_4",
+      "content": "其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "悄悄买房，这句话的含义你慢慢就懂了！",
+      "project_name": "查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_011010",
+      "record_id": "recuVQQsN5IJTE",
+      "status": "finished",
+      "execute_id": "7547395746744745984",
+      "submit_time": "2025-09-08T01:10:11.223430",
+      "complete_time": "2025-09-08T01:13:43.468713",
+      "coze_result": {
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010640001.wav\",\"content\":\"其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。\",\"recordId\":\"\",\"shortTitle\":\"买房听建议\",\"tableId\":\"\",\"title\":\"买房听他人建议是否违背自我意愿\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011305001.mp4\",\"wrapTitle\":\"买房听他人建议\\n       是否违背自我意愿\"}",
+        "node_status": "{}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_011010_20250908_011343\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_5": {
+      "task_id": "task_5",
+      "content": "明知道现在买房会跌，你们还在今年买房的原因是什么？这是我看到最动容的回答。经济有周期，人无再少年，说的太妙了。有网友说他今年买房是因为一家三口挤在小居室十几年了，上厕所都一个催一个，再不换孩子要上大学走了，和父母的日子就那么几年，不想再等了。这也许就是当下做置换最大的意义。我有时候就会想，如果只图有个住的地方是很容易的，租房也是一种很好的选择。网上有很多帖子都在算这笔账，是租房划算还是买房划算，有兴趣啊可以搜一下。尤其是当你去过一些别的国家，会发现人生有很多种活法啊，并不像国内有如此统一的标准。租房也好，买房也好，一直跟原生家庭住在一起也好，适合自己的才是最好的。如果手里预算不足，完全可以不买，后面还会有很多保障房出来。如果是置换手里的老房子，升级居住体验，现在绝对是一个很好的窗口期，毕竟经济有周期，人无在少年。",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "今年买房的人到底图什么？",
+      "project_name": "查_今年买房的人到底图什么？_20250908_011010",
+      "record_id": "recuVQQt1bLRVS",
+      "status": "finished",
+      "execute_id": "7547395728949395471",
+      "submit_time": "2025-09-08T01:10:11.229593",
+      "complete_time": "2025-09-08T01:20:15.789454",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010702001.wav\",\"content\":\"明知道现在买房会跌，你们还在今年买房的原因是什么？这是我看到最动容的回答。经济有周期，人无再少年，说的太妙了。有网友说他今年买房是因为一家三口挤在小居室十几年了，上厕所都一个催一个，再不换孩子要上大学走了，和父母的日子就那么几年，不想再等了。这也许就是当下做置换最大的意义。我有时候就会想，如果只图有个住的地方是很容易的，租房也是一种很好的选择。网上有很多帖子都在算这笔账，是租房划算还是买房划算，有兴趣啊可以搜一下。尤其是当你去过一些别的国家，会发现人生有很多种活法啊，并不像国内有如此统一的标准。租房也好，买房也好，一直跟原生家庭住在一起也好，适合自己的才是最好的。如果手里预算不足，完全可以不买，后面还会有很多保障房出来。如果是置换手里的老房子，升级居住体验，现在绝对是一个很好的窗口期，毕竟经济有周期，人无在少年。\",\"recordId\":\"\",\"shortTitle\":\"买房抉择\",\"tableId\":\"\",\"title\":\"明知买房会跌仍买是理性选择吗\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011951001.mp4\",\"wrapTitle\":\"明知买房会跌仍买\\n是理性选择吗\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_今年买房的人到底图什么？_20250908_011010_20250908_012015\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_6": {
+      "task_id": "task_6",
+      "content": "房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "这个环境，都是一把辛酸泪呀",
+      "project_name": "查_这个环境，都是一把辛酸泪呀_20250908_011010",
+      "record_id": "recuVQQtgd0VxD",
+      "status": "finished",
+      "execute_id": "7547395743104778240",
+      "submit_time": "2025-09-08T01:10:11.220688",
+      "complete_time": "2025-09-08T01:14:13.697712",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010625001.wav\",\"content\":\"房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。\",\"recordId\":\"\",\"shortTitle\":\"卖房真相\",\"tableId\":\"\",\"title\":\"房东卖房背后是光鲜还是心酸\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011407002.mp4\",\"wrapTitle\":\"房东卖房背后\\n是光鲜还是心酸\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_这个环境，都是一把辛酸泪呀_20250908_011010_20250908_011413\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_7": {
+      "task_id": "task_7",
+      "content": "二手房现在的一个市场状态啊，作为房东，说不能再低了，再低我就不卖了，我留给父母住或者是租出去。作为客户，那就让他留着吧。今年不卖，明年更便宜，你们怎么看？",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧，我今年买了明年也是亏。你们怎么看？",
+      "project_name": "查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250908_011010",
+      "record_id": "recuVQQtxQvCQn",
+      "status": "finished",
+      "execute_id": "7547395750880084003",
+      "submit_time": "2025-09-08T01:10:11.247080",
+      "complete_time": "2025-09-08T01:17:45.129762",
+      "coze_result": {
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010702002.wav\",\"content\":\"二手房现在的一个市场状态啊，作为房东，说不能再低了，再低我就不卖了，我留给父母住或者是租出去。作为客户，那就让他留着吧。今年不卖，明年更便宜，你们怎么看？\",\"recordId\":\"\",\"shortTitle\":\"二手房博弈\",\"tableId\":\"\",\"title\":\"二手房低价博弈谁该妥协让步\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011705001.mp4\",\"wrapTitle\":\"二手房低价博弈\\n谁该妥协让步\"}",
+        "node_status": "{}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250908_011010_20250908_011745\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_8": {
+      "task_id": "task_8",
+      "content": "曾经有一段时间，推动中国人买房的，并不是收入或需求，而是三句话，一句比一句更让人无法抗拒。\n\n第一句：“有房才有家，没房就没有家。”\n这句话把房子和归属感绑定，让很多人觉得，安居才能乐业，没房的人生就不完整。\n\n第二句更绝：“没有房，我不嫁给你。”\n婚姻与房产挂钩，让房子成了婚恋市场的“硬通货”，许多家庭开始把买房当作结婚的前提。\n\n第三句：“没有房，你的孩子上不了学。”\n这一句直接击中家庭最敏感的神经——下一代的教育。学区与房产绑定，让许多父母为了孩子学位，不得不咬牙入市。\n\n这三句话，层层加码，从情感、婚姻到子女未来，把房子推到了家庭决策的中心位置。\n\n今天回头看，房价的上涨，不只是市场行为，也和这些社会观念的塑造密切相关。\n\n而如今，随着政策调整和观念变化，住房正在逐步回归居住本质。\n人们对房子的期待，也在从“必须拥有”转向“合理选择”。",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "你是被哪句话逼着买房的？\n\n#热门 逼着买房的三句话#知识分享 #买房#青岛买房#楼市",
+      "project_name": "查_你是被哪句话逼着买房的？ #热门 逼着买房的三句话#知识分享..._20250908_011010",
+      "record_id": "recuW14rq6U8nu",
+      "status": "finished",
+      "execute_id": "7547395744271384603",
+      "submit_time": "2025-09-08T01:10:11.202125",
+      "complete_time": "2025-09-08T01:21:16.112928",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010633001.wav\",\"content\":\"曾经有一段时间，推动中国人买房的，并不是收入或需求，而是三句话，一句比一句更让人无法抗拒。\\n\\n第一句：“有房才有家，没房就没有家。”\\n这句话把房子和归属感绑定，让很多人觉得，安居才能乐业，没房的人生就不完整。\\n\\n第二句更绝：“没有房，我不嫁给你。”\\n婚姻与房产挂钩，让房子成了婚恋市场的“硬通货”，许多家庭开始把买房当作结婚的前提。\\n\\n第三句：“没有房，你的孩子上不了学。”\\n这一句直接击中家庭最敏感的神经——下一代的教育。学区与房产绑定，让许多父母为了孩子学位，不得不咬牙入市。\\n\\n这三句话，层层加码，从情感、婚姻到子女未来，把房子推到了家庭决策的中心位置。\\n\\n今天回头看，房价的上涨，不只是市场行为，也和这些社会观念的塑造密切相关。\\n\\n而如今，随着政策调整和观念变化，住房正在逐步回归居住本质。\\n人们对房子的期待，也在从“必须拥有”转向“合理选择”。\",\"recordId\":\"\",\"shortTitle\":\"房子观念之思\",\"tableId\":\"\",\"title\":\"房子绑架家庭观念是否合理\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908012054001.mp4\",\"wrapTitle\":\"房子绑架家庭观念\\n       是否合理\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_你是被哪句话逼着买房的？ #热门 逼着买房的三句话#知识分享..._20250908_011010_20250908_012116\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_9": {
+      "task_id": "task_9",
+      "content": "没房子的时候，工资跑不过房价；\n咬牙买下之后，房价却开始回调，资产在不知不觉中缩水。\n曾经以为，买房就等于安稳，\n结果发现，压力才刚刚开始。\n\n拼了半辈子，竟追不上一套房的涨跌节奏。\n这不只是一个人的经历，\n而是一代人共同面对的现实。\n\n房价起落之间，承载着太多期待与无奈。\n这届年轻人，真的不容易。",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "房价像过山车，我到底做错了什么？#房价 #涨跌 #搞笑 #长沙买房",
+      "project_name": "查_房价像过山车，我到底做错了什么？#房价 #涨跌 #搞笑 #长..._20250908_011010",
+      "record_id": "recuW14tj8LZvU",
+      "status": "finished",
+      "execute_id": "7547395741040787495",
+      "submit_time": "2025-09-08T01:10:11.223731",
+      "complete_time": "2025-09-08T01:15:44.430555",
+      "coze_result": {
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010643001.wav\",\"content\":\"没房子的时候，工资跑不过房价；\\n咬牙买下之后，房价却开始回调，资产在不知不觉中缩水。\\n曾经以为，买房就等于安稳，\\n结果发现，压力才刚刚开始。\\n\\n拼了半辈子，竟追不上一套房的涨跌节奏。\\n这不只是一个人的经历，\\n而是一代人共同面对的现实。\\n\\n房价起落之间，承载着太多期待与无奈。\\n这届年轻人，真的不容易。\",\"recordId\":\"\",\"shortTitle\":\"追房之困\",\"tableId\":\"\",\"title\":\"半辈子追不上房价涨跌年轻人何去何从\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011510001.mp4\",\"wrapTitle\":\"半辈子追不上房价涨跌\\n       年轻人何去何从\"}",
+        "node_status": "{}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_房价像过山车，我到底做错了什么？#房价 #涨跌 #搞笑 #长..._20250908_011010_20250908_011544\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_10": {
+      "task_id": "task_10",
+      "content": "房子缓一缓再买会不会更便宜？现在房子下跌，很多人不敢下手买房子。但是现在正在看房子的客户，你站出来讲一句，你看得上的房子绝对不便宜，你看不上的房子却都很便宜，这就是事实，不接受反驳。",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "好房子都不便宜，便宜房子都看不上#烟台 #房产",
+      "project_name": "查_好房子都不便宜，便宜房子都看不上#烟台 #房产_20250908_011010",
+      "record_id": "recuW14tj8VHIx",
+      "status": "finished",
+      "execute_id": "7547395736562270259",
+      "submit_time": "2025-09-08T01:10:11.200297",
+      "complete_time": "2025-09-08T01:18:45.369835",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010650001.wav\",\"content\":\"房子缓一缓再买会不会更便宜？现在房子下跌，很多人不敢下手买房子。但是现在正在看房子的客户，你站出来讲一句，你看得上的房子绝对不便宜，你看不上的房子却都很便宜，这就是事实，不接受反驳。\",\"recordId\":\"\",\"shortTitle\":\"缓买房价疑\",\"tableId\":\"\",\"title\":\"房子缓买真的会更便宜吗\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011806001.mp4\",\"wrapTitle\":\"房子缓买真的会更便宜吗\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_好房子都不便宜，便宜房子都看不上#烟台 #房产_20250908_011010_20250908_011845\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_11": {
+      "task_id": "task_11",
+      "content": "你们说现在大家都不敢买房，会不会就是最好的买房时候呀？然后大家都要买房的时候，反而房子不能买了吧。今年是十四五计划的最后一年，马上迎来十五五计划。我总觉得最近楼市这两个月有点过于风平浪静了，有没有可能再悄悄的憋大招呀？",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "视频_task_11",
+      "project_name": "查_video_20250908_011010",
+      "record_id": "recuW14tj8VkdM",
+      "status": "finished",
+      "execute_id": "7547395741955981346",
+      "submit_time": "2025-09-08T01:10:11.229495",
+      "complete_time": "2025-09-08T01:14:44.018269",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010631001.wav\",\"content\":\"你们说现在大家都不敢买房，会不会就是最好的买房时候呀？然后大家都要买房的时候，反而房子不能买了吧。今年是十四五计划的最后一年，马上迎来十五五计划。我总觉得最近楼市这两个月有点过于风平浪静了，有没有可能再悄悄的憋大招呀？\",\"recordId\":\"\",\"shortTitle\":\"楼市时机论\",\"tableId\":\"\",\"title\":\"大家不买时买房大家买时不买对吗\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011407003.mp4\",\"wrapTitle\":\"大家不买时买房大家买时不买对吗\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_video_20250908_011010_20250908_011444\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_12": {
+      "task_id": "task_12",
+      "content": "买房别问哪里好，送你三个方便，老人买菜方便，孩子上学方便，你上班方便。别人推荐的再好，能替你买菜，替你接孩子，还是替你上班呢？记住，买房不是给别人看的，是买给自己用的，不要追求一时的时髦，什么环境优美，智能社区，早晚过时，你就一个早出晚归的打工人。绿化再好，你有空闲逛，智能社区，你有空享受吗？那是给有钱人准备的。咱就是牛马，方便才是王道。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "哪里好，你方便就好#包头#包头房地产 #同城房产#房产知识#好房推荐",
+      "project_name": "查_哪里好，你方便就好#包头#包头房地产 #同城房产#房产知识#..._20250908_011010",
+      "record_id": "recuW14tj8mIBV",
+      "status": "finished",
+      "execute_id": "7547395745986723855",
+      "submit_time": "2025-09-08T01:10:11.221303",
+      "complete_time": "2025-09-08T01:18:45.370176",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010707001.wav\",\"content\":\"买房别问哪里好，送你三个方便，老人买菜方便，孩子上学方便，你上班方便。别人推荐的再好，能替你买菜，替你接孩子，还是替你上班呢？记住，买房不是给别人看的，是买给自己用的，不要追求一时的时髦，什么环境优美，智能社区，早晚过时，你就一个早出晚归的打工人。绿化再好，你有空闲逛，智能社区，你有空享受吗？那是给有钱人准备的。咱就是牛马，方便才是王道。\",\"recordId\":\"\",\"shortTitle\":\"买房重实用\",\"tableId\":\"\",\"title\":\"买房追求时髦还是实用才是正确选择\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011815001.mp4\",\"wrapTitle\":\"买房追求时髦还是实用\\n       才是正确选择\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_哪里好，你方便就好#包头#包头房地产 #同城房产#房产知识#..._20250908_011010_20250908_011845\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_13": {
+      "task_id": "task_13",
+      "content": "竟然有人买房专挑带4的楼层买，你知道为什么吗？之前有个老板跟我讲，他们家有三套房，分别在四楼、十四楼跟24楼，连门牌号都是一四零四。我就很好奇的问她，你为什么要选带四的这个数字呢？不是说带四不吉利吗？他说，我把别人不喜欢的数字当成我的幸运数字。你看宝马有四个方块，奥迪有四个圈，年有四季，月有四周，人有四肢，文房有四宝。他说你再看新年的吉祥语、祝福语，都是四季平安、四季发财，四通八达、四平八稳，名扬四海，志在四方。那你说这个四到底是好还是不好呢？",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "带“4”的楼层到底能不能买？你家楼层有带“4”吗？ #内容过于真实#买房 #楼市 #西安买房",
+      "project_name": "查_带“4”的楼层到底能不能买？你家楼层有带“4”吗？ #内容过..._20250908_011010",
+      "record_id": "recuW14tj8UFoe",
+      "status": "finished",
+      "execute_id": "7547395747052044315",
+      "submit_time": "2025-09-08T01:10:11.200899",
+      "complete_time": "2025-09-08T01:18:45.370018",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908010620001.wav\",\"content\":\"竟然有人买房专挑带4的楼层买，你知道为什么吗？之前有个老板跟我讲，他们家有三套房，分别在四楼、十四楼跟24楼，连门牌号都是一四零四。我就很好奇的问她，你为什么要选带四的这个数字呢？不是说带四不吉利吗？他说，我把别人不喜欢的数字当成我的幸运数字。你看宝马有四个方块，奥迪有四个圈，年有四季，月有四周，人有四肢，文房有四宝。他说你再看新年的吉祥语、祝福语，都是四季平安、四季发财，四通八达、四平八稳，名扬四海，志在四方。那你说这个四到底是好还是不好呢？\",\"recordId\":\"\",\"shortTitle\":\"数字4吉凶\",\"tableId\":\"\",\"title\":\"数字4不吉利是迷信还是另有深意\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011745001.mp4\",\"wrapTitle\":\"数字4不吉利\\n 是迷信还是另有深意\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_带“4”的楼层到底能不能买？你家楼层有带“4”吗？ #内容过..._20250908_011010_20250908_011845\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 13,
+    "submitted_tasks": 13,
+    "completed_tasks": 13,
+    "failed_tasks": 0,
+    "start_time": "2025-09-08T01:10:10.989932",
+    "end_time": "2025-09-08T01:24:18.695056"
+  }
+}

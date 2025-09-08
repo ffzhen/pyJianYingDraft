@@ -1,0 +1,75 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "悄悄买房，这句话的含义你慢慢就懂了！",
+      "project_name": "查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_114158",
+      "record_id": "recuVQQsN5IJTE",
+      "status": "finished",
+      "execute_id": "7547558539432427547",
+      "submit_time": "2025-09-08T11:41:58.811127",
+      "complete_time": "2025-09-08T11:45:30.547922",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908113810002.wav\",\"content\":\"其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。\",\"recordId\":\"\",\"shortTitle\":\"买房抉择\",\"tableId\":\"\",\"title\":\"买房该听他人意见还是遵从自我\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908114505001.mp4\",\"wrapTitle\":\"买房该听他人意见\\n还是遵从自我\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_114158_20250908_114530\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_2": {
+      "task_id": "task_2",
+      "content": "房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。",
+      "digital_no": "D20250820190000006",
+      "voice_id": "AA20250822120001",
+      "title": "这个环境，都是一把辛酸泪呀",
+      "project_name": "查_这个环境，都是一把辛酸泪呀_20250908_114158",
+      "record_id": "recuVQQtgd0VxD",
+      "status": "finished",
+      "execute_id": "7547558559631212583",
+      "submit_time": "2025-09-08T11:41:58.893111",
+      "complete_time": "2025-09-08T11:45:30.533776",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908113830001.wav\",\"content\":\"房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。\",\"recordId\":\"\",\"shortTitle\":\"卖房真相\",\"tableId\":\"\",\"title\":\"房东卖房背后是风光还是心酸\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908114507001.mp4\",\"wrapTitle\":\"房东卖房背后\\n       是风光还是心酸\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_这个环境，都是一把辛酸泪呀_20250908_114158_20250908_114530\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    },
+    "task_3": {
+      "task_id": "task_3",
+      "content": "二手房现在的一个市场状态啊，作为房东，说不能再低了，再低我就不卖了，我留给父母住或者是租出去。作为客户，那就让他留着吧。今年不卖，明年更便宜，你们怎么看？",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧，我今年买了明年也是亏。你们怎么看？",
+      "project_name": "查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250908_114158",
+      "record_id": "recuVQQtxQvCQn",
+      "status": "finished",
+      "execute_id": "7547558551831232512",
+      "submit_time": "2025-09-08T11:41:58.893002",
+      "complete_time": "2025-09-08T11:45:30.549082",
+      "coze_result": {
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908113801001.wav\",\"content\":\"二手房现在的一个市场状态啊，作为房东，说不能再低了，再低我就不卖了，我留给父母住或者是租出去。作为客户，那就让他留着吧。今年不卖，明年更便宜，你们怎么看？\",\"recordId\":\"\",\"shortTitle\":\"二手房价僵局\",\"tableId\":\"\",\"title\":\"二手房买卖僵持谁该妥协让步\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908114506001.mp4\",\"wrapTitle\":\"二手房买卖僵持\\n谁该妥协让步\"}",
+        "node_status": "{}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_房东：再低我就不卖了，留着给父母住或者出租。客户：让他留着吧..._20250908_114158_20250908_114541\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 3,
+    "submitted_tasks": 3,
+    "completed_tasks": 3,
+    "failed_tasks": 0,
+    "start_time": "2025-09-08T11:41:58.419835",
+    "end_time": "2025-09-08T11:46:00.553783"
+  }
+}

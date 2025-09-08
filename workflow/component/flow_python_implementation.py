@@ -589,12 +589,18 @@ class VideoEditingWorkflow:
             min_pause_duration: 最小停顿时长(秒)，默认0.2秒
             max_word_gap: 单词间最大间隔(秒)，默认0.8秒
         """
-        # 检查是否已经手动处理过多片段
-        if hasattr(self, 'skip_normal_processing') and self.skip_normal_processing:
-            self.skip_normal_processing = False
-            return None
-        if not self.script:
-            raise ValueError("请先创建草稿")
+        # 添加并发安全保护
+        import threading
+        if not hasattr(self, '_digital_video_lock'):
+            self._digital_video_lock = threading.RLock()
+        
+        with self._digital_video_lock:
+            # 检查是否已经手动处理过多片段
+            if hasattr(self, 'skip_normal_processing') and self.skip_normal_processing:
+                self.skip_normal_processing = False
+                return None
+            if not self.script:
+                raise ValueError("请先创建草稿")
             
         # 下载数字人视频（使用唯一文件名）
         digital_video_local_path = self._generate_unique_filename("digital_human")
@@ -879,6 +885,36 @@ class VideoEditingWorkflow:
         
         return audio_segment
     
+    def _resolve_music_path(self, music_path: str) -> str:
+        """解析音乐文件路径
+        
+        Args:
+            music_path: 原始音乐文件路径
+            
+        Returns:
+            解析后的绝对路径
+        """
+        # 如果已经是绝对路径，直接返回
+        if os.path.isabs(music_path):
+            return music_path
+        
+        # 如果是相对路径，尝试多个可能的根目录
+        possible_roots = [
+            os.getcwd(),  # 当前工作目录
+            os.path.dirname(os.path.abspath(__file__)),  # 当前文件所在目录
+            os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '..'),  # 项目根目录
+        ]
+        
+        for root in possible_roots:
+            full_path = os.path.join(root, music_path)
+            if os.path.exists(full_path):
+                print(f"[INFO] 找到背景音乐文件: {full_path}")
+                return full_path
+        
+        # 如果都找不到，返回原始路径（让后续的错误处理来处理）
+        print(f"[WARNING] 无法解析背景音乐路径: {music_path}")
+        return music_path
+    
     def add_background_music(self, music_path: str, target_duration: float = None, volume: float = 0.3, time_offset: float = 0.0):
         """添加背景音乐
         
@@ -890,12 +926,15 @@ class VideoEditingWorkflow:
         """
         if not self.script:
             raise ValueError("请先创建草稿")
+        
+        # 解析音乐文件路径
+        resolved_music_path = self._resolve_music_path(music_path)
             
-        if not os.path.exists(music_path):
-            raise ValueError(f"背景音乐文件不存在: {music_path}")
+        if not os.path.exists(resolved_music_path):
+            raise ValueError(f"背景音乐文件不存在: {resolved_music_path}")
         
         # 获取背景音乐素材信息
-        bg_music_material = draft.AudioMaterial(music_path)
+        bg_music_material = draft.AudioMaterial(resolved_music_path)
         
         # 确定目标时长 - 优先使用有效视频时长确保不超过处理后视频长度（保留两位小数）
         if target_duration is None:
@@ -1346,60 +1385,66 @@ class VideoEditingWorkflow:
         if not caption_data:
             return None
         
-        # 默认背景样式（参考标题背景样式，但高度调整为适合字幕）
-        if background_style is None:
-            background_style = {
-                "color": "#000000",      # 黑色
-                "alpha": 0.67,           # 67% 不透明度
-                "height": 0.25,          # 25% 高度（比标题背景稍小）
-                "width": 0.14,           # 14% 宽度  
-                "horizontal_offset": 0.5, # 50% 左右间隙
-                "vertical_offset": 0.5,   # 50% 上下间隙
-                "round_radius": 0.0,     # 圆角半径
-                "style": 1               # 背景样式
-            }
+        # 添加并发安全保护
+        import threading
+        if not hasattr(self, '_caption_background_lock'):
+            self._caption_background_lock = threading.RLock()
         
-        # 计算字幕背景的总时长（使用有效视频时长，确保不超过处理后的视频长度，保留两位小数）
-        start_time = 0.0 + time_offset  # 从项目开始，应用时间偏移
-        
-        # 使用有效视频时长作为背景持续时间
-        effective_duration = self.get_effective_video_duration()
-        if effective_duration > 0:
-            total_duration = round(effective_duration, 6)
-            print(f"[DEBUG] 字幕背景使用有效视频时长: {total_duration:.6f}s (确保不超过处理后视频)")
-        else:
-            # 回退方案：使用字幕时长
-            caption_start = min(caption.get('start', 0) for caption in caption_data)
-            caption_end = max(caption.get('end', 0) for caption in caption_data)
-            total_duration = round(caption_end - caption_start, 6)
-            print(f"[DEBUG] 字幕背景回退使用字幕时长: {total_duration:.6f}s")
-        
-        # 验证背景时长不超过视频总时长
-        total_duration = self._validate_duration_bounds(total_duration, "字幕背景")
-        
-        print(f"[DEBUG] 字幕背景时长设置: {start_time:.6f}s - {start_time + total_duration:.6f}s")
-        
-        # 根据位置设置不同的垂直位置
-        if position == "top":
-            transform_y = 0.4
-        else:
-            transform_y = bottom_transform_y
-        
-        # 创建背景文本片段（使用占位符确保背景显示）
-        placeholder_text = " " * 50  # 使用固定长度的占位符
-        
-        # 复用 add_styled_text_with_background 方法，创建全程显示的背景
-        bg_segment = self.add_styled_text_with_background(
-            text_content=placeholder_text,
-            timerange_start=start_time,
-            timerange_duration=total_duration,
-            track_name="内容字幕背景",
-            position=position,
-            background_style=background_style,
-            text_transform_y=transform_y,
-            line_spacing=0,
-            bg_height=background_style["height"]
-        )
+        with self._caption_background_lock:
+            # 默认背景样式（参考标题背景样式，但高度调整为适合字幕）
+            if background_style is None:
+                background_style = {
+                    "color": "#000000",      # 黑色
+                    "alpha": 0.67,           # 67% 不透明度
+                    "height": 0.25,          # 25% 高度（比标题背景稍小）
+                    "width": 0.14,           # 14% 宽度  
+                    "horizontal_offset": 0.5, # 50% 左右间隙
+                    "vertical_offset": 0.5,   # 50% 上下间隙
+                    "round_radius": 0.0,     # 圆角半径
+                    "style": 1               # 背景样式
+                }
+            
+            # 计算字幕背景的总时长（使用有效视频时长，确保不超过处理后的视频长度，保留两位小数）
+            start_time = 0.0 + time_offset  # 从项目开始，应用时间偏移
+            
+            # 使用有效视频时长作为背景持续时间
+            effective_duration = self.get_effective_video_duration()
+            if effective_duration > 0:
+                total_duration = round(effective_duration, 6)
+                print(f"[DEBUG] 字幕背景使用有效视频时长: {total_duration:.6f}s (确保不超过处理后视频)")
+            else:
+                # 回退方案：使用字幕时长
+                caption_start = min(caption.get('start', 0) for caption in caption_data)
+                caption_end = max(caption.get('end', 0) for caption in caption_data)
+                total_duration = round(caption_end - caption_start, 6)
+                print(f"[DEBUG] 字幕背景回退使用字幕时长: {total_duration:.6f}s")
+            
+            # 验证背景时长不超过视频总时长
+            total_duration = self._validate_duration_bounds(total_duration, "字幕背景")
+            
+            print(f"[DEBUG] 字幕背景时长设置: {start_time:.6f}s - {start_time + total_duration:.6f}s")
+            
+            # 根据位置设置不同的垂直位置
+            if position == "top":
+                transform_y = 0.4
+            else:
+                transform_y = bottom_transform_y
+            
+            # 创建背景文本片段（使用占位符确保背景显示）
+            placeholder_text = " " * 50  # 使用固定长度的占位符
+            
+            # 复用 add_styled_text_with_background 方法，创建全程显示的背景
+            bg_segment = self.add_styled_text_with_background(
+                text_content=placeholder_text,
+                timerange_start=start_time,
+                timerange_duration=total_duration,
+                track_name="内容字幕背景",
+                position=position,
+                background_style=background_style,
+                text_transform_y=transform_y,
+                line_spacing=0,
+                bg_height=background_style["height"]
+            )
         
         return bg_segment
     
@@ -1524,7 +1569,7 @@ class VideoEditingWorkflow:
             self.add_digital_human_video(
                     digital_video_url, 
                     remove_pauses=True, 
-                    min_pause_duration=0.2, 
+                    min_pause_duration=0.1, 
                     max_word_gap=0.8,
                     time_offset=effective_offset
                 )
@@ -1860,7 +1905,14 @@ class VideoEditingWorkflow:
             
             segment_files = []
             import uuid
-            segment_id = str(uuid.uuid4())[:8]
+            import time
+            import threading
+            
+            # 使用更安全的唯一ID生成方式，避免并发冲突
+            timestamp = int(time.time() * 1000000)  # 微秒时间戳
+            thread_id = threading.get_ident() % 100000  # 线程ID后5位
+            random_id = uuid.uuid4().hex[:8]
+            segment_id = f"{timestamp}_{thread_id}_{random_id}"
             
             # 确保temp_materials目录存在
             temp_dir = "temp_materials"
@@ -2394,7 +2446,7 @@ def main():
     # 配置华尔兹背景音乐路径
     current_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.join(current_dir, '..', '..')
-    background_music_path = os.path.join(project_root, 'resource/华尔兹.mp3')
+    background_music_path = os.path.join(project_root, 'resource\华尔兹.mp3')
     
     # 配置输入参数
     inputs = {
@@ -2405,7 +2457,7 @@ def main():
         "content": "买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话",
         "title": "买房子该怎么买，一定要牢记",
         "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224537001.mp4",     
-
+        
         
         # 🔥 火山引擎ASR配置（用于语音识别）
         'volcengine_appid': '6046310832',                # 火山引擎ASR AppID
@@ -2450,50 +2502,6 @@ def main():
         
     except Exception as e:
         print(f"[ERROR] 工作流失败: {e}")
-        import traceback
-        traceback.print_exc()
-
-
-
-def test_cover_function():
-    """测试封面功能"""
-    print("="*60)
-    print("封面功能测试")
-    print("="*60)
-    
-    # 配置剪映草稿文件夹路径
-    draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
-    
-    # 创建工作流实例
-    workflow = VideoEditingWorkflow(draft_folder_path, "cover_test")
-    
-    try:
-        # 1. 创建草稿
-        workflow.create_draft()
-        print("[OK] 草稿创建成功")
-        
-        # 2. 测试封面功能
-        cover_result = workflow.add_cover(
-            cover_image_path="resource/查封面.jpg",
-            frames=2,
-            fps=30,
-            top_text="买房须知",
-            bottom_text="买房子该怎么买\n     一定要牢记"
-        )
-        
-        print(f"\n封面处理结果:")
-        print(f"  - 成功: {cover_result['success']}")
-        print(f"  - 封面时长: {cover_result['cover_duration']:.6f}秒")
-        print(f"  - 时间偏移: {cover_result['time_offset']:.6f}秒")
-        print(f"  - 封面启用: {cover_result['cover_enabled']}")
-        
-        # 3. 保存草稿
-        workflow.script.save()
-        print(f"\n[OK] 封面测试完成！")
-        print("请打开剪映查看生成的封面项目")
-        
-    except Exception as e:
-        print(f"[ERROR] 封面测试失败: {e}")
         import traceback
         traceback.print_exc()
 
@@ -2589,6 +2597,51 @@ def test_cover_function():
                 print(f"[ERROR] 调整轨道 {track_name} 时出错: {e}")
         
         print(f"[TRACK_ALIGNMENT] 轨道对齐处理完成，共调整了 {alignment_count} 个轨道")
+
+
+
+def test_cover_function():
+    """测试封面功能"""
+    print("="*60)
+    print("封面功能测试")
+    print("="*60)
+    
+    # 配置剪映草稿文件夹路径
+    draft_folder_path = r"C:\Users\nrgc\AppData\Local\JianyingPro\User Data\Projects\com.lveditor.draft"
+    
+    # 创建工作流实例
+    workflow = VideoEditingWorkflow(draft_folder_path, "cover_test")
+    
+    try:
+        # 1. 创建草稿
+        workflow.create_draft()
+        print("[OK] 草稿创建成功")
+        
+        # 2. 测试封面功能
+        cover_result = workflow.add_cover(
+            cover_image_path="resource/查封面.jpg",
+            frames=2,
+            fps=30,
+            top_text="买房须知",
+            bottom_text="买房子该怎么买\n     一定要牢记"
+        )
+        
+        print(f"\n封面处理结果:")
+        print(f"  - 成功: {cover_result['success']}")
+        print(f"  - 封面时长: {cover_result['cover_duration']:.6f}秒")
+        print(f"  - 时间偏移: {cover_result['time_offset']:.6f}秒")
+        print(f"  - 封面启用: {cover_result['cover_enabled']}")
+        
+        # 3. 保存草稿
+        workflow.script.save()
+        print(f"\n[OK] 封面测试完成！")
+        print("请打开剪映查看生成的封面项目")
+        
+    except Exception as e:
+        print(f"[ERROR] 封面测试失败: {e}")
+        import traceback
+        traceback.print_exc()
+
 
 
 if __name__ == "__main__":

@@ -28,3 +28,6 @@ temp_materials/
 .env
 .env.local
 .history
+*/node_modules/
+gui/node_modules/
+workflow_logs/
