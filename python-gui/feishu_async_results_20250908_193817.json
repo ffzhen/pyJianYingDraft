@@ -1,0 +1,33 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。",
+      "digital_no": "D20250820190000004",
+      "voice_id": "AA20250822120001",
+      "title": "悄悄买房，这句话的含义你慢慢就懂了！",
+      "project_name": "查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_193415",
+      "record_id": "recuVQQsN5IJTE",
+      "status": "finished",
+      "execute_id": "7547680260809981979",
+      "submit_time": "2025-09-08T19:34:15.435974",
+      "complete_time": "2025-09-08T19:37:47.638186",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250908193039001.wav\",\"content\":\"其实真正买房的人都是悄悄买的，然后呢惊艳所有人。有多少人是败在帮你参考的军师上。每个人站的角度不同，自己喜欢就好，不要花自己的钱买了别人喜欢的房。\",\"recordId\":\"\",\"shortTitle\":\"买房抉择\",\"tableId\":\"\",\"title\":\"买房该听他人建议还是遵从己心\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250908193705001.mp4\",\"wrapTitle\":\"买房该听他人建议\\n还是遵从己心\"}"
+      },
+      "video_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft\\查_悄悄买房，这句话的含义你慢慢就懂了！_20250908_193415_20250908_193747\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 1,
+    "submitted_tasks": 1,
+    "completed_tasks": 1,
+    "failed_tasks": 0,
+    "start_time": "2025-09-08T19:34:15.189844",
+    "end_time": "2025-09-08T19:38:17.641000"
+  }
+}

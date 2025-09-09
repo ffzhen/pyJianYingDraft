@@ -633,6 +633,7 @@ class VideoEditingWorkflow:
                     # 4. 生成原始字幕
                     subtitle_objects = self.volcengine_asr.parse_result_to_subtitles(asr_result)
                     self.original_subtitles = subtitle_objects
+                    print(f"[DEBUG] 原始字幕",subtitle_objects)
                     
                     if pause_segments:
                         print(f"[OK] 检测到 {len(pause_segments)} 个停顿段落")
@@ -673,6 +674,7 @@ class VideoEditingWorkflow:
                             # self._clear_caption_tracks()
                             
                             # 添加字幕（带关键词高亮）
+                            print(f"[DEBUG] 添加字幕（带关键词高亮）",adjusted_subtitles)
                             self.add_captions(adjusted_subtitles, track_name="内容字幕轨道", position="bottom",
                                             keywords=keywords, 
                                             base_color=(1.0, 1.0, 1.0),  # 白色
@@ -1664,11 +1666,11 @@ class VideoEditingWorkflow:
         #     self._log_subtitle_details(final_subtitles, "最终生成的")
         
         # 7. 轨道对齐处理：确保所有轨道都与主轴对齐且不得超过主轴
-        try:
-            self._align_all_tracks_with_main_track(effective_offset)
-            print(f"[OK] 所有轨道已与主轴对齐")
-        except Exception as e:
-            print(f"[ERROR] 轨道对齐处理失败: {e}")
+        # try:
+        #     self._align_all_tracks_with_main_track(effective_offset)
+        #     print(f"[OK] 所有轨道已与主轴对齐")
+        # except Exception as e:
+        #     print(f"[ERROR] 轨道对齐处理失败: {e}")
         
         # 保存工作流摘要
         try:
@@ -2129,48 +2131,62 @@ class VideoEditingWorkflow:
             print(f"[DEBUG] 开始调整字幕时间轴")
             print(f"[DEBUG] 原始字幕数量: {len(original_subtitles)}")
             print(f"[DEBUG] 停顿段落数量: {len(pause_segments)}")
-            
-            adjusted_subtitles = []
-            
-            for subtitle in original_subtitles:
-                original_start = subtitle['start']
-                original_end = subtitle['end']
-                
-                # 计算在这个字幕之前被移除的停顿时长
-                removed_time_before = 0.0
-                
-                for pause_start, pause_end in pause_segments:
-                    if pause_end <= original_start:
-                        # 完全在字幕之前的停顿
-                        removed_time_before += (pause_end - pause_start)
-                    elif pause_start < original_start and pause_end > original_start:
-                        # 与字幕开始时间重叠的停顿
-                        removed_time_before += (original_start - pause_start)
-                
-                # 调整时间（保持两位小数）
-                new_start = round(original_start - removed_time_before, 2)
-                new_end = round(original_end - removed_time_before, 2)
-                
-                # 应用时间偏移
-                new_start = round(new_start + time_offset, 2)
-                new_end = round(new_end + time_offset, 2)
-                
-                # 确保时间不为负（保持两位小数）
-                new_start = round(max(0, new_start), 2)
-                new_end = round(max(new_start, new_end), 2)
-                
-                adjusted_subtitle = {
-                    'text': subtitle['text'],
-                    'start': new_start,
-                    'end': new_end
-                }
-                
-                adjusted_subtitles.append(adjusted_subtitle)
-                
-                print(f"[DEBUG] 字幕调整: {subtitle['text']}")
+
+            # 1) 先排序，保证时间单调
+            sorted_subs = sorted(original_subtitles, key=lambda s: (s.get('start', 0.0), s.get('end', 0.0)))
+
+            # 2) 预处理停顿段，按开始时间排序，便于累计
+            pauses = sorted([(float(ps), float(pe)) for ps, pe in pause_segments], key=lambda x: x[0])
+
+            def map_time(t: float) -> float:
+                """将原始时间映射到移除停顿后的时间轴。
+                计算所有在 t 之前完全结束的停顿总时长；
+                若 t 落在某个停顿内，则只减去该段中从开头到 t 的部分。"""
+                removed = 0.0
+                for ps, pe in pauses:
+                    if pe <= t:
+                        removed += (pe - ps)
+                    elif ps < t < pe:
+                        removed += (t - ps)
+                        break
+                    elif ps >= t:
+                        break
+                return t - removed
+
+            adjusted_subtitles: List[Dict[str, Any]] = []
+            prev_end = -0.01
+            min_gap = 0.01  # 10ms 缝隙，避免重叠
+            min_dur = 0.05  # 至少 50ms 避免 0 时长
+
+            for sub in sorted_subs:
+                original_start = float(sub['start'])
+                original_end = float(sub['end'])
+
+                # 3) 做时间映射并加偏移
+                ns = map_time(original_start) + float(time_offset or 0.0)
+                ne = map_time(original_end) + float(time_offset or 0.0)
+
+                # 4) 归一化 & 非负
+                ns = max(0.0, ns)
+                ne = max(ns, ne)
+
+                # 5) 防重叠裁剪（与前一段保持最小间隔）
+                if ns < prev_end + min_gap:
+                    ns = prev_end + min_gap
+                if ne < ns + min_dur:
+                    ne = ns + min_dur
+
+                # 6) 保留两位小数（和上游一致），并再次保证不反转
+                ns = round(ns, 2)
+                ne = round(max(ns, ne), 2)
+
+                adjusted_subtitles.append({'text': sub['text'], 'start': ns, 'end': ne})
+                prev_end = ne
+
+                print(f"[DEBUG] 字幕调整: {sub['text']}")
                 print(f"   原始时间: {original_start:.2f}s - {original_end:.2f}s")
-                print(f"   调整时间: {new_start:.2f}s - {new_end:.2f}s (偏移: {time_offset:.6f}s)")
-            
+                print(f"   调整时间: {ns:.2f}s - {ne:.2f}s (偏移: {time_offset:.6f}s)")
+
             print(f"[DEBUG] 字幕时间轴调整完成，共 {len(adjusted_subtitles)} 段字幕")
             return adjusted_subtitles
             
@@ -2454,10 +2470,14 @@ def main():
         # 'audio_url': 'https://oss.oemi.jdword.com/prod/temp/srt/V20250901152556001.wav',
         # 'title': '火山引擎ASR智能字幕演示',
         # "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
-        "content": "买房的时候你永远要记住一句话，在最贵的地方买最便宜的房子，千万不要在最便宜的地方买最贵的房子。你现在不理解这句话的含义，在你卖房子的时候，你就知道了，过来人都能听懂我这句话",
-        "title": "买房子该怎么买，一定要牢记",
-        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250904224537001.mp4",     
-        
+            "content": "中国以后还会有大规模拆迁吗？答案是：会。\\n从二零二五年开始，国家将把拆迁改造范围从三十个城市扩大到三百个，全面推进城中村和老旧小区更新，并重新提倡“货币化安置”——也就是直接发放现金补偿。\\n这意味着，一批拆迁户将获得数百万元甚至上千万元的补偿款，确实有可能成为千万富翁。但关键在于钱怎么用：用于改善住房或稳健配置，财富才能留存；若盲目消费或投机，也可能“一夜暴富、转眼归零”。\\n与过去不同，这一轮改造有两个重要变化：\\n一是“多拆少建”。当前全国房产库存偏高，拆旧不等于大建，而是严控新增供应。\\n二是“拆小建大”。拆除的主要是老破小，新建的则是大面积、改善型、舒适型住宅，推动居住品质升级。\\n目前小户型库存充足，能满足刚需，政策重心已转向支持改善型需求。\\n这一轮不是简单拆迁，而是通过城市更新优化住房结构、激活内需、带动经济。\\n面对这笔补偿款，理性规划比一时致富更重要。\\n理解政策方向，才能真正把握时代红利",
+    
+        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250909190004001.mp4",     
+        "title": "拆迁暴富后盲目消费财富能留存吗",
+
+
+
+
         
         # 🔥 火山引擎ASR配置（用于语音识别）
         'volcengine_appid': '6046310832',                # 火山引擎ASR AppID

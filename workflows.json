@@ -1,0 +1,8 @@
+{
+  "feishu_async_default": {
+    "id": "feishu_async_default",
+    "name": "飞书视频批量生成",
+    "type": "feishu_async_batch",
+    "created_at": "2025-09-08T20:35:44.022882"
+  }
+}

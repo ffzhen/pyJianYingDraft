@@ -21,6 +21,17 @@ import schedule
 import requests
 from typing import Dict, List, Any, Optional
 import uuid
+import subprocess
+import webbrowser
+
+# 优先使用内置 ffmpeg（若随 EXE 打包在 bin\ffmpeg.exe）
+try:
+    _exe_dir = os.path.dirname(os.path.abspath(__file__))
+    _ffmpeg_bin = os.path.join(_exe_dir, 'bin')
+    if os.path.exists(os.path.join(_ffmpeg_bin, 'ffmpeg.exe')) and _ffmpeg_bin not in os.environ.get('PATH', ''):
+        os.environ['PATH'] = _ffmpeg_bin + os.pathsep + os.environ.get('PATH', '')
+except Exception:
+    pass
 
 # 添加项目根目录到路径
 import sys
@@ -49,7 +60,21 @@ class VideoGeneratorGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("视频生成器 - 智能视频制作工具")
-        self.root.geometry("1200x800")
+        try:
+            sw = self.root.winfo_screenwidth()
+            sh = self.root.winfo_screenheight()
+            w = min(1200, max(960, sw - 80))
+            h = min(800, max(640, sh - 120))
+            self.root.geometry(f"{w}x{h}")
+            # 小屏幕上尽量最大化窗口，提高可视区域
+            if sw < 1366 or sh < 768:
+                try:
+                    self.root.state('zoomed')
+                except Exception:
+                    pass
+            self.root.minsize(900, 620)
+        except Exception:
+            self.root.geometry("1200x800")
         
         # 配置文件路径
         self.config_file = "config.json"
@@ -64,9 +89,14 @@ class VideoGeneratorGUI:
         self.feishu_content_data = []  # 存储飞书内容数据
         self.current_session_id = None  # 当前运行会话ID
         self.session_logs = {}  # 存储各会话的日志
+        self.logs_dir = os.path.join(os.path.dirname(__file__), 'workflow_logs')
+        os.makedirs(self.logs_dir, exist_ok=True)
+        self.current_session_log_file = None
         
         # 加载配置
         self.load_config()
+        # 应用可选 ffmpeg 路径
+        self.apply_ffmpeg_path()
         self.load_workflows()
         self.load_schedules()
         
@@ -75,6 +105,31 @@ class VideoGeneratorGUI:
         
         # 启动调度器
         self.start_scheduler()
+
+    def apply_ffmpeg_path(self):
+        """将配置中的 ffmpeg 路径加入 PATH（若存在）"""
+        try:
+            ffmpeg_path = ((self.config.get('tools') or {}).get('ffmpeg_path') or '').strip()
+            if ffmpeg_path:
+                ffmpeg_dir = ffmpeg_path if ffmpeg_path.lower().endswith('.exe') else ffmpeg_path
+                if ffmpeg_dir.lower().endswith('.exe'):
+                    ffmpeg_dir = os.path.dirname(ffmpeg_dir)
+                if os.path.isdir(ffmpeg_dir) and ffmpeg_dir not in os.environ.get('PATH', ''):
+                    os.environ['PATH'] = ffmpeg_dir + os.pathsep + os.environ.get('PATH', '')
+        except Exception:
+            pass
+
+    def browse_ffmpeg_path(self):
+        path = filedialog.askopenfilename(title="选择 ffmpeg.exe", filetypes=[("ffmpeg", "ffmpeg.exe"), ("所有文件", "*.*")])
+        if path:
+            self.ffmpeg_path_entry.delete(0, tk.END)
+            self.ffmpeg_path_entry.insert(0, path)
+
+    def browse_bgm_path(self):
+        path = filedialog.askopenfilename(title="选择背景音乐文件", filetypes=[("音频文件", "*.mp3;*.wav;*.aac;*.m4a;*.flac"), ("所有文件", "*.*")])
+        if path:
+            self.bgm_path_entry.delete(0, tk.END)
+            self.bgm_path_entry.insert(0, path)
     
     def create_gui(self):
         """创建GUI界面"""
@@ -84,20 +139,31 @@ class VideoGeneratorGUI:
         
         # 创建各个标签页（将配置管理放在最后）
         self.create_feishu_async_tab()
+        self.create_simple_compose_tab()
         self.create_manual_tab()
+        self.create_workflow_tab()
         self.create_schedule_tab()
         self.create_log_tab()
         self.create_config_tab()
 
-        # 默认选中“飞书异步批量”标签
+        # 默认选中"飞书视频批量生成"标签
         try:
             for i in range(len(self.notebook.tabs())):
                 tab_text = self.notebook.tab(i, option='text')
-                if tab_text == "飞书异步批量":
+                if tab_text == "飞书视频批量生成" or tab_text == "飞书异步批量":
                     self.notebook.select(i)
                     break
         except Exception:
             pass
+
+        # 首次加载时初始化工作流与定时任务列表
+        try:
+            if hasattr(self, 'refresh_workflow_list'):
+                self.refresh_workflow_list()
+            if hasattr(self, 'refresh_schedule_list'):
+                self.refresh_schedule_list()
+        except Exception as _init_list_err:
+            self.log_message(f"初始化列表失败: {_init_list_err}")
     
     def create_config_tab(self):
         """创建配置标签页"""
@@ -177,6 +243,29 @@ class VideoGeneratorGUI:
         self.jianying_path_entry.grid(row=0, column=1, padx=5, pady=5)
         
         ttk.Button(jianying_frame, text="浏览", command=self.browse_jianying_path).grid(row=0, column=2, padx=5, pady=5)
+
+        ttk.Label(jianying_frame, text="FFmpeg 路径(可选):").grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.ffmpeg_path_entry = ttk.Entry(jianying_frame, width=60)
+        self.ffmpeg_path_entry.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(jianying_frame, text="浏览", command=self.browse_ffmpeg_path).grid(row=1, column=2, padx=5, pady=5)
+
+        ttk.Label(jianying_frame, text="背景音乐文件(可选):").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.bgm_path_entry = ttk.Entry(jianying_frame, width=60)
+        self.bgm_path_entry.grid(row=2, column=1, padx=5, pady=5)
+        ttk.Button(jianying_frame, text="浏览", command=self.browse_bgm_path).grid(row=2, column=2, padx=5, pady=5)
+        
+        # 网络代理配置
+        proxy_frame = ttk.LabelFrame(scrollable_frame, text="网络代理配置")
+        proxy_frame.pack(fill='x', padx=20, pady=10)
+        ttk.Label(proxy_frame, text="HTTP_PROXY:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        self.http_proxy_entry = ttk.Entry(proxy_frame, width=60)
+        self.http_proxy_entry.grid(row=0, column=1, padx=5, pady=5)
+        ttk.Label(proxy_frame, text="HTTPS_PROXY:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.https_proxy_entry = ttk.Entry(proxy_frame, width=60)
+        self.https_proxy_entry.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Label(proxy_frame, text="NO_PROXY:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.no_proxy_entry = ttk.Entry(proxy_frame, width=60)
+        self.no_proxy_entry.grid(row=2, column=1, padx=5, pady=5)
         
         # 飞书异步工作流配置
         feishu_async_frame = ttk.LabelFrame(scrollable_frame, text="飞书异步工作流配置")
@@ -235,12 +324,25 @@ class VideoGeneratorGUI:
         
         # 加载现有配置
         self.load_config_to_gui()
+        # 首次应用代理设置
+        self.apply_proxy_config()
     
     
     def create_feishu_async_tab(self):
         """创建飞书异步批量工作流标签页"""
-        async_frame = ttk.Frame(self.notebook)
-        self.notebook.add(async_frame, text="飞书视频批量生成")
+        # 创建可滚动容器，适配小屏幕
+        _async_tab_outer = ttk.Frame(self.notebook)
+        self.notebook.add(_async_tab_outer, text="飞书视频批量生成")
+        _async_canvas = tk.Canvas(_async_tab_outer, highlightthickness=0)
+        _async_scrollbar = ttk.Scrollbar(_async_tab_outer, orient="vertical", command=_async_canvas.yview)
+        _async_inner = ttk.Frame(_async_canvas)
+        _async_inner.bind("<Configure>", lambda e: _async_canvas.configure(scrollregion=_async_canvas.bbox("all")))
+        _async_canvas.create_window((0, 0), window=_async_inner, anchor="nw")
+        _async_canvas.configure(yscrollcommand=_async_scrollbar.set)
+        _async_canvas.pack(side="left", fill="both", expand=True)
+        _async_scrollbar.pack(side="right", fill="y")
+        # 后续使用 async_frame 指向滚动区域内部容器
+        async_frame = _async_inner
         
         ttk.Label(async_frame, text="飞书视频批量生成", font=("Arial", 14, "bold")).pack(pady=10)
         
@@ -274,7 +376,6 @@ class VideoGeneratorGUI:
         ttk.Button(button_frame, text="获取飞书内容", command=self.fetch_feishu_content).pack(side='left', padx=5)
         ttk.Button(button_frame, text="开始异步批量处理", command=self.start_feishu_async_batch).pack(side='left', padx=5)
         ttk.Button(button_frame, text="停止处理", command=self.stop_feishu_async_batch).pack(side='left', padx=5)
-        ttk.Button(button_frame, text="查看任务状态", command=self.view_async_task_status).pack(side='left', padx=5)
         
         # 内容预览区域
         preview_frame = ttk.LabelFrame(async_frame, text="飞书内容预览")
@@ -332,39 +433,8 @@ class VideoGeneratorGUI:
         self.detailed_stats_label = ttk.Label(stats_frame, text="运行中: 0 | 失败: 0 | 成功: 0")
         self.detailed_stats_label.pack(side='left', padx=20)
         
-        # 任务列表显示
-        task_frame = ttk.LabelFrame(async_frame, text="任务列表")
-        task_frame.pack(fill='both', expand=True, padx=20, pady=10)
-        
-        # 创建表格
-        columns = ('任务ID', '标题', '状态', '进度', '开始时间', '完成时间', '耗时', '重试次数')
-        self.async_task_tree = ttk.Treeview(task_frame, columns=columns, show='headings', height=15)
-        
-        # 设置列标题和宽度
-        column_widths = {
-            '任务ID': 80,
-            '标题': 150,
-            '状态': 120,
-            '进度': 80,
-            '开始时间': 100,
-            '完成时间': 100,
-            '耗时': 80,
-            '重试次数': 80
-        }
-        
-        for col in columns:
-            self.async_task_tree.heading(col, text=col)
-            self.async_task_tree.column(col, width=column_widths.get(col, 120))
-        
-        # 添加双击事件
-        self.async_task_tree.bind('<Double-1>', self.on_task_double_click)
-        
-        self.async_task_tree.pack(fill='both', expand=True, padx=10, pady=10)
-        
-        # 滚动条
-        scrollbar = ttk.Scrollbar(task_frame, orient="vertical", command=self.async_task_tree.yview)
-        self.async_task_tree.configure(yscrollcommand=scrollbar.set)
-        scrollbar.pack(side="right", fill="y")
+        # 不需要任务列表，确保引用安全
+        self.async_task_tree = None
         
         # 状态变量
         self.async_workflow = None
@@ -452,25 +522,20 @@ class VideoGeneratorGUI:
         self.schedule_name_entry = ttk.Entry(create_frame, width=40)
         self.schedule_name_entry.grid(row=0, column=1, padx=5, pady=5)
         
-        ttk.Label(create_frame, text="工作流类型:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.schedule_workflow_type_combo = ttk.Combobox(create_frame, values=['手动生成', '飞书异步批量'], width=38)
-        self.schedule_workflow_type_combo.grid(row=1, column=1, padx=5, pady=5)
-        self.schedule_workflow_type_combo.bind('<<ComboboxSelected>>', self.on_workflow_type_changed)
-        
-        ttk.Label(create_frame, text="工作流:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(create_frame, text="工作流:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
         self.schedule_workflow_combo = ttk.Combobox(create_frame, width=38)
-        self.schedule_workflow_combo.grid(row=2, column=1, padx=5, pady=5)
+        self.schedule_workflow_combo.grid(row=1, column=1, padx=5, pady=5)
         
-        ttk.Label(create_frame, text="执行时间:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(create_frame, text="执行时间:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
         self.schedule_time_entry = ttk.Entry(create_frame, width=40)
-        self.schedule_time_entry.grid(row=3, column=1, padx=5, pady=5)
-        ttk.Label(create_frame, text="(格式: HH:MM)").grid(row=3, column=2, padx=5, pady=5)
+        self.schedule_time_entry.grid(row=2, column=1, padx=5, pady=5)
+        ttk.Label(create_frame, text="(格式: HH:MM)").grid(row=2, column=2, padx=5, pady=5)
         
-        ttk.Label(create_frame, text="重复周期:").grid(row=4, column=0, sticky='w', padx=5, pady=5)
+        ttk.Label(create_frame, text="重复周期:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
         self.schedule_repeat_combo = ttk.Combobox(create_frame, values=['每天', '每周', '每月'], width=38)
-        self.schedule_repeat_combo.grid(row=4, column=1, padx=5, pady=5)
+        self.schedule_repeat_combo.grid(row=3, column=1, padx=5, pady=5)
         
-        ttk.Button(create_frame, text="创建任务", command=self.create_schedule).grid(row=5, column=1, pady=10)
+        ttk.Button(create_frame, text="创建任务", command=self.create_schedule).grid(row=4, column=1, pady=10)
         
         # 任务列表
         list_frame = ttk.LabelFrame(schedule_frame, text="定时任务列表")
@@ -522,6 +587,7 @@ class VideoGeneratorGUI:
         ttk.Button(button_frame, text="导出当前日志", command=self.export_log).pack(side='left', padx=5)
         ttk.Button(button_frame, text="导出选中会话", command=self.export_session_log).pack(side='left', padx=5)
         ttk.Button(button_frame, text="导出所有日志", command=self.export_all_logs).pack(side='left', padx=5)
+        ttk.Button(button_frame, text="打开日志目录", command=self.open_logs_dir).pack(side='left', padx=5)
         
         # 日志显示区域
         self.log_text = scrolledtext.ScrolledText(log_frame, height=25, width=100)
@@ -563,6 +629,18 @@ class VideoGeneratorGUI:
         self.config['jianying'] = {
             'draft_folder_path': self.jianying_path_entry.get()
         }
+        # 可选工具与音频
+        self.config['tools'] = {
+            'ffmpeg_path': self.ffmpeg_path_entry.get()
+        }
+        self.config['audio'] = {
+            'bgm_path': self.bgm_path_entry.get()
+        }
+        self.config['proxy'] = {
+            'http_proxy': self.http_proxy_entry.get(),
+            'https_proxy': self.https_proxy_entry.get(),
+            'no_proxy': self.no_proxy_entry.get()
+        }
         self.config['feishu_async'] = {
             'app_token': self.feishu_app_token_entry.get(),
             'content_table_id': self.feishu_content_table_id_entry.get(),
@@ -581,6 +659,10 @@ class VideoGeneratorGUI:
                 json.dump(self.config, f, ensure_ascii=False, indent=2)
             messagebox.showinfo("成功", "配置保存成功")
             self.log_message("配置保存成功")
+            # 应用代理
+            self.apply_proxy_config()
+            # 应用 ffmpeg 路径
+            self.apply_ffmpeg_path()
         except Exception as e:
             messagebox.showerror("错误", f"保存配置失败: {e}")
             self.log_message(f"保存配置失败: {e}")
@@ -605,6 +687,16 @@ class VideoGeneratorGUI:
         
         if 'jianying' in self.config:
             self.jianying_path_entry.insert(0, self.config['jianying'].get('draft_folder_path', ''))
+        if 'tools' in self.config:
+            self.ffmpeg_path_entry.insert(0, self.config['tools'].get('ffmpeg_path', ''))
+        if 'audio' in self.config:
+            self.bgm_path_entry.insert(0, self.config['audio'].get('bgm_path', ''))
+        
+        # 代理配置
+        if 'proxy' in self.config:
+            self.http_proxy_entry.insert(0, self.config['proxy'].get('http_proxy', ''))
+            self.https_proxy_entry.insert(0, self.config['proxy'].get('https_proxy', ''))
+            self.no_proxy_entry.insert(0, self.config['proxy'].get('no_proxy', ''))
         
         if 'feishu_async' in self.config:
             self.feishu_app_token_entry.insert(0, self.config['feishu_async'].get('app_token', ''))
@@ -631,7 +723,20 @@ class VideoGeneratorGUI:
                 self.log_message(f"加载工作流数据失败: {e}")
                 self.workflows = {}
         else:
-            self.workflows = {}
+            # 首次无文件时，写入一个默认的"飞书视频批量生成"工作流
+            self.workflows = {
+                "feishu_async_default": {
+                    "id": "feishu_async_default",
+                    "name": "飞书视频批量生成",
+                    "type": "feishu_async_batch",
+                    "created_at": datetime.now().isoformat()
+                }
+            }
+            try:
+                with open(self.workflows_file, 'w', encoding='utf-8') as f:
+                    json.dump(self.workflows, f, ensure_ascii=False, indent=2)
+            except Exception as e:
+                self.log_message(f"初始化默认工作流失败: {e}")
     
     def save_workflows(self):
         """保存工作流数据"""
@@ -978,12 +1083,11 @@ class VideoGeneratorGUI:
         """创建定时任务"""
         try:
             name = self.schedule_name_entry.get().strip()
-            workflow_type = self.schedule_workflow_type_combo.get()
             workflow_id = self.schedule_workflow_combo.get()
             time_str = self.schedule_time_entry.get().strip()
             repeat = self.schedule_repeat_combo.get()
             
-            if not all([name, workflow_type, time_str, repeat]):
+            if not all([name, workflow_id, time_str, repeat]):
                 raise ValueError("请填写所有必填字段")
             
             # 验证时间格式
@@ -997,7 +1101,6 @@ class VideoGeneratorGUI:
             self.schedules[schedule_id] = {
                 'id': schedule_id,
                 'name': name,
-                'workflow_type': workflow_type,
                 'workflow_id': workflow_id,
                 'time': time_str,
                 'repeat': repeat,
@@ -1012,7 +1115,6 @@ class VideoGeneratorGUI:
             self.schedule_name_entry.delete(0, tk.END)
             self.schedule_time_entry.delete(0, tk.END)
             self.schedule_repeat_combo.set('')
-            self.schedule_workflow_type_combo.set('')
             
             messagebox.showinfo("成功", "定时任务创建成功")
             self.log_message(f"创建定时任务: {name}")
@@ -1035,7 +1137,7 @@ class VideoGeneratorGUI:
             next_run = self.calculate_next_run(schedule['time'], schedule['repeat'])
             self.schedule_tree.insert('', 'end', values=(
                 schedule.get('name', ''),
-                schedule.get('workflow_type', ''),
+                '',
                 schedule.get('workflow_id', ''),
                 schedule.get('time', ''),
                 schedule.get('repeat', ''),
@@ -1147,6 +1249,83 @@ class VideoGeneratorGUI:
         
         threading.Thread(target=scheduler_loop, daemon=True).start()
         self.log_message("调度器已启动")
+
+    def create_simple_compose_tab(self):
+        """创建简单合成标签页：输入数字人视频URL、BGM、标题、文案，直接合成"""
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="简单合成")
+
+        ttk.Label(tab, text="数字人视频直合", font=("Arial", 14, "bold")).pack(pady=10)
+        form = ttk.LabelFrame(tab, text="参数")
+        form.pack(fill='x', padx=20, pady=10)
+
+        ttk.Label(form, text="数字人视频URL:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
+        self.simple_dh_url = ttk.Entry(form, width=80)
+        self.simple_dh_url.grid(row=0, column=1, padx=5, pady=5)
+
+        ttk.Label(form, text="背景音乐(可选):").grid(row=1, column=0, sticky='w', padx=5, pady=5)
+        self.simple_bgm = ttk.Entry(form, width=80)
+        self.simple_bgm.grid(row=1, column=1, padx=5, pady=5)
+        ttk.Button(form, text="浏览", command=self.browse_simple_bgm).grid(row=1, column=2, padx=5, pady=5)
+
+        ttk.Label(form, text="标题:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.simple_title = ttk.Entry(form, width=80)
+        self.simple_title.grid(row=2, column=1, padx=5, pady=5)
+
+        ttk.Label(form, text="文案内容:").grid(row=3, column=0, sticky='nw', padx=5, pady=5)
+        self.simple_content = scrolledtext.ScrolledText(form, width=60, height=6)
+        self.simple_content.grid(row=3, column=1, padx=5, pady=5)
+
+        btns = ttk.Frame(tab)
+        btns.pack(fill='x', padx=20, pady=10)
+        ttk.Button(btns, text="开始合成", command=self.start_simple_compose).pack(side='left', padx=5)
+
+    def browse_simple_bgm(self):
+        path = filedialog.askopenfilename(title="选择背景音乐", filetypes=[("音频文件", "*.mp3;*.wav;*.aac;*.m4a;*.flac"), ("所有文件", "*.*")])
+        if path:
+            self.simple_bgm.delete(0, tk.END)
+            self.simple_bgm.insert(0, path)
+
+    def start_simple_compose(self):
+        """简单合成：下载数字人视频(或直接使用URL)，可选叠加BGM，生成剪映草稿并保存"""
+        if not self.jianying_path_entry.get():
+            messagebox.showerror("错误", "请先在配置管理中设置剪映草稿文件夹路径")
+            return
+        url = self.simple_dh_url.get().strip()
+        if not url:
+            messagebox.showerror("错误", "请填写数字人视频URL")
+            return
+        title = self.simple_title.get().strip() or "直合视频"
+        content = self.simple_content.get(1.0, tk.END).strip()
+        bgm = self.simple_bgm.get().strip() or (self.config.get('audio') or {}).get('bgm_path', '')
+
+        def run():
+            try:
+                self.log_message("开始简单合成…")
+                # 构建最小工作流配置
+                config = {
+                    'workflow_config': {
+                        'draft_folder_path': self.jianying_path_entry.get().strip(),
+                    }
+                }
+                wf = VideoEditingWorkflow(config['workflow_config'])
+                # 仅添加数字人主视频
+                wf.add_digital_human_video(url, project_name=title)
+                # 可选添加BGM
+                if bgm:
+                    try:
+                        wf.add_background_music(bgm, volume=0.3)
+                    except Exception as e:
+                        self.log_message(f"[WARN] 背景音乐添加失败: {e}")
+                # 可选标题/文案可用于封面或字幕，这里先只保存草稿
+                save_path = wf.save_project()
+                self.log_message(f"简单合成完成，草稿已保存到: {save_path}")
+                messagebox.showinfo("完成", f"合成完成，草稿已保存到: {save_path}")
+            except Exception as e:
+                self.log_message(f"简单合成失败: {e}")
+                messagebox.showerror("错误", f"简单合成失败: {e}")
+
+        threading.Thread(target=run, daemon=True).start()
     
     def run_scheduled_task(self, schedule_id: str):
         """运行定时任务"""
@@ -1170,26 +1349,21 @@ class VideoGeneratorGUI:
             
             self.log_message(f"开始执行定时任务: {schedule.get('name')}")
             
-            # 根据工作流类型执行
-            workflow_type = schedule.get('workflow_type', '')
-            
-            if workflow_type == '手动生成':
-                if workflow.get('type') == 'manual':
-                    result = self.generate_video_from_content(
-                        workflow.get('content', ''),
-                        workflow.get('digital_no'),
-                        workflow.get('voice_id')
-                    )
-                else:
-                    self.log_message(f"工作流类型不匹配: {workflow.get('type')}")
-                    return
-            elif workflow_type == '飞书异步批量':
+            # 根据工作流对象的类型执行
+            workflow_type = (workflow or {}).get('type', '')
+            if workflow_type == 'manual':
+                result = self.generate_video_from_content(
+                    workflow.get('content', ''),
+                    workflow.get('digital_no'),
+                    workflow.get('voice_id')
+                )
+            elif workflow_type == 'feishu_async_batch':
                 # 执行飞书异步批量工作流
-                self.log_message(f"开始执行飞书异步批量定时任务: {schedule.get('name')}")
+                self.log_message(f"开始执行飞书视频批量生成定时任务: {schedule.get('name')}")
                 
                 # 检查配置
                 if not self.check_feishu_async_config():
-                    self.log_message("飞书异步工作流配置不完整，跳过执行")
+                    self.log_message("飞书视频批量生成配置不完整，跳过执行")
                     return
                 
                 # 构建配置
@@ -1240,6 +1414,14 @@ class VideoGeneratorGUI:
             if self.current_session_id not in self.session_logs:
                 self.session_logs[self.current_session_id] = []
             self.session_logs[self.current_session_id].append(log_entry.strip())
+            # 追加写入原始日志文件
+            try:
+                if not self.current_session_log_file:
+                    self.current_session_log_file = os.path.join(self.logs_dir, f"{self.current_session_id}.log")
+                with open(self.current_session_log_file, 'a', encoding='utf-8') as lf:
+                    lf.write(log_entry)
+            except Exception:
+                pass
         
         # 限制日志长度
         lines = self.log_text.get(1.0, tk.END).split('\n')
@@ -1330,6 +1512,38 @@ class VideoGeneratorGUI:
                 self.log_message(f"所有日志已导出到: {filename}")
         except Exception as e:
             messagebox.showerror("错误", f"导出所有日志失败: {e}")
+    
+    def open_logs_dir(self):
+        """打开日志目录"""
+        try:
+            os.makedirs(self.logs_dir, exist_ok=True)
+            if sys.platform.startswith('win'):
+                os.startfile(self.logs_dir)
+            else:
+                webbrowser.open(self.logs_dir)
+        except Exception as e:
+            messagebox.showerror("错误", f"打开日志目录失败: {e}")
+
+    def apply_proxy_config(self):
+        """应用代理配置到进程环境与requests默认环境"""
+        try:
+            proxy_cfg = self.config.get('proxy', {})
+            http_proxy = (self.http_proxy_entry.get() if hasattr(self, 'http_proxy_entry') else '') or proxy_cfg.get('http_proxy', '')
+            https_proxy = (self.https_proxy_entry.get() if hasattr(self, 'https_proxy_entry') else '') or proxy_cfg.get('https_proxy', '')
+            no_proxy = (self.no_proxy_entry.get() if hasattr(self, 'no_proxy_entry') else '') or proxy_cfg.get('no_proxy', '')
+            
+            # 设置/清理环境变量
+            for key, val in [('HTTP_PROXY', http_proxy), ('HTTPS_PROXY', https_proxy), ('NO_PROXY', no_proxy)]:
+                if val:
+                    os.environ[key] = val
+                    os.environ[key.lower()] = val
+                else:
+                    os.environ.pop(key, None)
+                    os.environ.pop(key.lower(), None)
+            
+            self.log_message("代理配置已应用")
+        except Exception as e:
+            self.log_message(f"代理配置应用失败: {e}")
     
     def fetch_feishu_content(self):
         """获取飞书内容并预览（应用过滤条件）"""
@@ -1509,9 +1723,24 @@ class VideoGeneratorGUI:
                 self.root.after(0, self.refresh_sessions)
                 
                 if result.get('success'):
-                    success_rate = result.get('success_rate', 0)
-                    total_tasks = result.get('total_tasks', 0)
-                    finished_tasks = result.get('finished_tasks', 0)
+                    # 以实际任务最终状态为准重新计算指标
+                    total_tasks = 0
+                    completed_tasks = 0
+                    failed_tasks = 0
+                    try:
+                        tasks_data = getattr(self.async_workflow, 'async_processor', None)
+                        tasks_dict = tasks_data.tasks if tasks_data else {}
+                        total_tasks = len(tasks_dict)
+                        for t in tasks_dict.values():
+                            status = t.status.value if hasattr(t.status, 'value') else str(t.status)
+                            if status in ['finished', 'completed']:
+                                completed_tasks += 1
+                            elif status in ['failed']:
+                                failed_tasks += 1
+                    except Exception:
+                        pass
+                    finished_tasks = completed_tasks + failed_tasks if total_tasks else result.get('finished_tasks', 0)
+                    success_rate = (completed_tasks / total_tasks * 100) if total_tasks else result.get('success_rate', 0)
                     
                     self.root.after(0, self.update_async_progress, 
                                   f"处理完成！成功率: {success_rate:.1f}% ({finished_tasks}/{total_tasks})")
@@ -1662,8 +1891,12 @@ class VideoGeneratorGUI:
                 'poll_interval': self.config['concurrent']['poll_interval']
             }
         }
-        
+        # 注入可选背景音乐
+        bgm_path = (self.config.get('audio') or {}).get('bgm_path')
+        if bgm_path:
+            config['workflow_config']['background_music_path'] = bgm_path
         return config
+
     
     def build_filter_condition(self) -> Dict[str, Any]:
         """构建过滤条件"""
@@ -1730,9 +1963,10 @@ class VideoGeneratorGUI:
     
     def clear_task_info_on_failure(self):
         """处理失败时清空任务信息"""
-        # 清空任务列表
-        for item in self.async_task_tree.get_children():
-            self.async_task_tree.delete(item)
+        # 清空任务列表（若存在）
+        if self.async_task_tree:
+            for item in self.async_task_tree.get_children():
+                self.async_task_tree.delete(item)
         
         # 重置统计信息
         self.stats_label['text'] = "任务统计: 0/0 (0% 完成)"
@@ -1756,6 +1990,13 @@ class VideoGeneratorGUI:
     
     def update_task_list(self):
         """更新任务列表显示"""
+        if not self.async_task_tree:
+            # 已移除任务列表，直接退回并仅更新统计与进度
+            if self.async_workflow and getattr(self.async_workflow, 'async_processor', None):
+                tasks_data = self.async_workflow.async_processor.tasks
+                self.update_task_statistics(tasks_data)
+                self.update_detailed_progress(tasks_data)
+            return
         if not self.async_workflow or not self.async_workflow.async_processor:
             return
         
@@ -1764,9 +2005,10 @@ class VideoGeneratorGUI:
         if not tasks_data:
             return
         
-        # 清空任务列表
-        for item in self.async_task_tree.get_children():
-            self.async_task_tree.delete(item)
+        # 清空任务列表（若存在）
+        if self.async_task_tree:
+            for item in self.async_task_tree.get_children():
+                self.async_task_tree.delete(item)
         
         # 添加任务到列表
         for task_id, task in tasks_data.items():
@@ -1828,6 +2070,8 @@ class VideoGeneratorGUI:
     
     def on_task_double_click(self, event):
         """任务双击事件处理"""
+        if not self.async_task_tree:
+            return
         selection = self.async_task_tree.selection()
         if not selection:
             return
@@ -1872,15 +2116,91 @@ class VideoGeneratorGUI:
                         detail += f"视频路径: {task.video_path}\n"
                     break
         
+        # 弹出任务详情，并打开实时日志窗口
+        try:
+            self.open_task_log_viewer(task_id, title)
+        except Exception:
+            pass
         messagebox.showinfo("任务详情", detail)
+
+    def open_task_log_viewer(self, short_task_id: str, title: str):
+        """打开任务实时日志窗口（基于当前会话日志实时追踪）"""
+        if not self.current_session_log_file or not os.path.exists(self.current_session_log_file):
+            messagebox.showwarning("提示", "当前没有可用的会话日志。请先开始一次批量处理。")
+            return
+
+        win = tk.Toplevel(self.root)
+        win.title(f"任务实时日志 - {title}")
+        win.geometry("900x520")
+
+        # 顶部操作栏
+        toolbar = ttk.Frame(win)
+        toolbar.pack(fill='x', padx=8, pady=6)
+
+        open_sys_btn = ttk.Button(toolbar, text="打开系统终端查看", command=self.open_session_log_in_terminal)
+        open_sys_btn.pack(side='right')
+
+        info_lbl = ttk.Label(toolbar, text=f"会话日志: {os.path.basename(self.current_session_log_file)}  |  任务ID匹配: {short_task_id}")
+        info_lbl.pack(side='left')
+
+        # 文本区域
+        text = scrolledtext.ScrolledText(win, wrap='word', height=28)
+        text.pack(fill='both', expand=True, padx=8, pady=6)
+        text.insert('end', f"[实时跟踪] {datetime.now().strftime('%H:%M:%S')} 开始追踪日志...\n")
+        text.configure(state='disabled')
+
+        # 追踪位置
+        state = {"pos": 0}
+
+        def tail_log():
+            try:
+                with open(self.current_session_log_file, 'r', encoding='utf-8', errors='ignore') as f:
+                    f.seek(state["pos"])
+                    lines = f.readlines()
+                    state["pos"] = f.tell()
+                if lines:
+                    # 仅显示包含任务短ID或通用关键信息的行
+                    filtered = []
+                    for line in lines:
+                        if short_task_id.replace('...', '') in line or '任务' in line or 'ERROR' in line or 'INFO' in line or 'WARN' in line:
+                            filtered.append(line)
+                    if filtered:
+                        text.configure(state='normal')
+                        text.insert('end', ''.join(filtered))
+                        text.see('end')
+                        text.configure(state='disabled')
+            except Exception:
+                pass
+            finally:
+                # 继续轮询
+                if win.winfo_exists():
+                    win.after(800, tail_log)
+
+        tail_log()
+
+    def open_session_log_in_terminal(self):
+        """在系统 PowerShell 中实时查看当前会话日志"""
+        if not self.current_session_log_file or not os.path.exists(self.current_session_log_file):
+            messagebox.showwarning("提示", "当前没有可用的会话日志。请先开始一次批量处理。")
+            return
+        try:
+            log_path = os.path.abspath(self.current_session_log_file)
+            # 使用 PowerShell 实时追踪日志
+            cmd = [
+                'powershell', '-NoExit', '-Command',
+                f"Get-Content -Path '{log_path}' -Wait -Encoding UTF8"
+            ]
+            subprocess.Popen(cmd, creationflags=subprocess.CREATE_NEW_CONSOLE)
+        except Exception as e:
+            messagebox.showerror("错误", f"打开系统终端失败: {e}")
     
     def auto_scroll_to_latest(self):
         """自动滚动到最新任务"""
+        if not self.async_task_tree:
+            return
         children = self.async_task_tree.get_children()
         if children:
-            # 滚动到最后一个任务
             self.async_task_tree.see(children[-1])
-            # 选中最后一个任务
             self.async_task_tree.selection_set(children[-1])
     
     def update_task_statistics(self, tasks_data):
@@ -1891,25 +2211,26 @@ class VideoGeneratorGUI:
             return
         
         total_tasks = len(tasks_data)
-        completed_tasks = 0
+        completed_tasks = 0  # 成功
         failed_tasks = 0
         running_tasks = 0
         pending_tasks = 0
         
         for task in tasks_data.values():
             status = task.status.value if hasattr(task.status, 'value') else str(task.status)
-            if status in ['finished']:
+            if status in ['finished', 'completed']:
                 completed_tasks += 1
             elif status in ['failed']:
                 failed_tasks += 1
-            elif status in ['running', 'submitted', 'completed', 'synthesizing']:
+            elif status in ['running', 'submitted', 'synthesizing']:
                 running_tasks += 1
-            elif status in ['pending']:
+            else:
                 pending_tasks += 1
         
-        success_rate = (completed_tasks / total_tasks * 100) if total_tasks > 0 else 0
+        finished = completed_tasks + failed_tasks
+        finished_pct = (finished / total_tasks * 100) if total_tasks > 0 else 0
         
-        stats_text = f"任务统计: {completed_tasks}/{total_tasks} 完成 ({success_rate:.1f}%)"
+        stats_text = f"任务统计: {finished}/{total_tasks} ({finished_pct:.1f}% 完成) | 成功率: {(completed_tasks/total_tasks*100 if total_tasks else 0):.1f}%"
         self.stats_label['text'] = stats_text
         
         detailed_text = f"运行中: {running_tasks} | 失败: {failed_tasks} | 成功: {completed_tasks} | 待处理: {pending_tasks}"
@@ -1970,9 +2291,17 @@ class VideoGeneratorGUI:
             self.runtime_label['text'] = "运行时间: 00:00:00"
     
     def import_template_config(self):
-        """导入模板配置文件"""
+        """导入模板配置文件（支持选择任意JSON文件）"""
         try:
-            template_path = os.path.join(PROJECT_ROOT, 'workflow', 'feishu_config_template.json')
+            # 先弹窗让用户选择文件，默认定位到项目内模板
+            default_path = os.path.join(PROJECT_ROOT, 'workflow')
+            file_path = filedialog.askopenfilename(
+                title="选择模板配置文件",
+                initialdir=default_path,
+                filetypes=[("JSON 文件", "*.json"), ("所有文件", "*.*")]
+            )
+            # 若未选择，则回退到默认模板
+            template_path = file_path or os.path.join(PROJECT_ROOT, 'workflow', 'feishu_config_template.json')
             
             if not os.path.exists(template_path):
                 messagebox.showerror("错误", f"模板配置文件不存在: {template_path}")
@@ -2131,23 +2460,19 @@ class FeishuClient:
         
         access_token = self.get_access_token()
         
-        # 如果有过滤条件，使用搜索API
+        # 如果有过滤条件，使用搜索API；否则使用普通获取API
         if filter_condition:
             url = f"{self.base_url}/bitable/v1/apps/{self.app_token}/tables/{table_id}/records/search"
-            
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
-            
             payload = {
                 "page_size": 100,
                 "filter": filter_condition
             }
-            
             response = requests.post(url, headers=headers, json=payload)
             response.raise_for_status()
-            
             result = response.json()
             if result.get('code') == 0:
                 data = result.get('data', {})
@@ -2155,17 +2480,13 @@ class FeishuClient:
             else:
                 raise ValueError(f"搜索记录失败: {result.get('msg')}")
         else:
-            # 没有过滤条件，使用普通获取API
             url = f"{self.base_url}/bitable/v1/apps/{self.app_token}/tables/{table_id}/records"
-            
             headers = {
                 "Authorization": f"Bearer {access_token}",
                 "Content-Type": "application/json"
             }
-            
             response = requests.get(url, headers=headers)
             response.raise_for_status()
-            
             result = response.json()
             if result.get('code') == 0:
                 data = result.get('data', {})
