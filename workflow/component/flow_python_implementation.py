@@ -269,8 +269,8 @@ class VideoEditingWorkflow:
                     "model": self.volcengine_asr.doubao_model,
                     "messages": [
                         {"role": "system", "content": (
-                            "你是文案排版助手。请把给定中文标题合理断句为3行，" \
-                            "每行尽量语义完整、长度均衡。只返回三行内容，用\n分隔，不要额外说明。"
+                            "你是文案排版助手。请把给定中文标题合理断句为3行，如果内容不够可以适当扩充，整体还是简明扼要，；例如：买房字\n到底该怎么买\n过来人说句真话" \
+                            "每行尽量语义完整、有真人感、激发用户情绪。只返回三行内容，用\n分隔，不要额外说明。"
                         )},
                         {"role": "user", "content": f"标题：{title}\n输出3行："}
                     ],
@@ -290,28 +290,63 @@ class VideoEditingWorkflow:
                     content = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '')
                     lines = [ln.strip() for ln in content.split("\n") if ln.strip()]
                     if len(lines) >= 3:
+                        try:
+                            self.logger.info("✂️ 标题拆分: 使用AI(豆包)")
+                        except Exception:
+                            print("[TITLE_SPLIT] 使用AI(豆包)")
                         return lines[:3]
         except Exception as _:
-            pass
+            try:
+                self.logger.info("✂️ 标题拆分: AI失败，使用本地规则")
+            except Exception:
+                print("[TITLE_SPLIT] AI失败，使用本地规则")
 
-        # 本地回退：按中文标点切分，再均匀合并到三份
+        # 本地回退：优先按中文标点切分；不足三段时退化为按字符等分
         import re
         tokens = re.split(r'[，。！？、;；\s]+', title)
         tokens = [t for t in tokens if t]
-        if not tokens:
-            # 最简单退化：平均切字符
-            n = len(title)
-            a = max(1, n // 3)
-            b = max(1, (n - a) // 2)
-            return [title[:a], title[a:a+b], title[a+b:]]
 
-        target = [[], [], []]
-        lengths = [0, 0, 0]
-        for tok in tokens:
-            i = lengths.index(min(lengths))
-            target[i].append(tok)
-            lengths[i] += len(tok)
-        return [''.join(x) for x in target]
+        if len(tokens) >= 3:
+            # 将分词尽量均衡地分配到三行
+            target = [[], [], []]
+            lengths = [0, 0, 0]
+            for tok in tokens:
+                i = lengths.index(min(lengths))
+                target[i].append(tok)
+                lengths[i] += len(tok)
+            try:
+                self.logger.info("✂️ 标题拆分: 本地规则(按标点分词均衡)")
+            except Exception:
+                print("[TITLE_SPLIT] 本地规则(按标点分词均衡)")
+            return [''.join(x) for x in target]
+        else:
+            # 标题无标点或仅一两个连续词：按字符长度等分为三行
+            n = len(title)
+            if n <= 3:
+                # 极短标题，保证三行存在
+                try:
+                    self.logger.info("✂️ 标题拆分: 本地规则(极短标题字符均分)")
+                except Exception:
+                    print("[TITLE_SPLIT] 本地规则(极短标题字符均分)")
+                return [title[:1], title[1:2] if n > 1 else '', title[2:3] if n > 2 else '']
+            a = (n + 2) // 3
+            b = (n - a + 1) // 2
+            c = n - a - b
+            # 确保每段至少1个字符
+            if a == 0: a = 1
+            if b == 0: b = 1
+            if c == 0:
+                # 从前两段挪一个字符给第三段
+                if a > 1:
+                    a -= 1
+                elif b > 1:
+                    b -= 1
+                c = n - a - b
+            try:
+                self.logger.info("✂️ 标题拆分: 本地规则(字符等分)")
+            except Exception:
+                print("[TITLE_SPLIT] 本地规则(字符等分)")
+            return [title[:a], title[a:a+b], title[a+b:]]
 
     def add_three_line_title(self, title: str,
                              start: float = 0.0,
@@ -2470,10 +2505,10 @@ def main():
         # 'audio_url': 'https://oss.oemi.jdword.com/prod/temp/srt/V20250901152556001.wav',
         # 'title': '火山引擎ASR智能字幕演示',
         # "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
-            "content": "中国以后还会有大规模拆迁吗？答案是：会。\\n从二零二五年开始，国家将把拆迁改造范围从三十个城市扩大到三百个，全面推进城中村和老旧小区更新，并重新提倡“货币化安置”——也就是直接发放现金补偿。\\n这意味着，一批拆迁户将获得数百万元甚至上千万元的补偿款，确实有可能成为千万富翁。但关键在于钱怎么用：用于改善住房或稳健配置，财富才能留存；若盲目消费或投机，也可能“一夜暴富、转眼归零”。\\n与过去不同，这一轮改造有两个重要变化：\\n一是“多拆少建”。当前全国房产库存偏高，拆旧不等于大建，而是严控新增供应。\\n二是“拆小建大”。拆除的主要是老破小，新建的则是大面积、改善型、舒适型住宅，推动居住品质升级。\\n目前小户型库存充足，能满足刚需，政策重心已转向支持改善型需求。\\n这一轮不是简单拆迁，而是通过城市更新优化住房结构、激活内需、带动经济。\\n面对这笔补偿款，理性规划比一时致富更重要。\\n理解政策方向，才能真正把握时代红利",
-    
-        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250909190004001.mp4",     
-        "title": "拆迁暴富后盲目消费财富能留存吗",
+        "content": "半辈子追房涨跌年轻人安稳何在, content: 没房子的时候，工资跑不过房价；\n咬牙买下之后，房价却开始回调，资产在不知不觉中缩水。\n曾经以为，买房就等于安稳，\n结果发现，压力才刚刚开始。\n\n拼了半辈子，竟追不上一套房的涨跌节奏。\n这不只是一个人的经历，\n而是一代人共同面对的现实。\n\n房价起落之间，承载着太多期待与无奈。\n这届年轻人，真的不容易。",
+
+        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250909223211001.mp4",     
+        "title": "半辈子追房涨跌年轻人安稳何在",
 
 
 

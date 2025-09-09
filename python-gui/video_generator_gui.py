@@ -80,11 +80,13 @@ class VideoGeneratorGUI:
         self.config_file = "config.json"
         self.workflows_file = "workflows.json"
         self.schedules_file = "schedules.json"
+        self.templates_file = "templates.json"
         
         # 数据存储
         self.config = {}
         self.workflows = {}
         self.schedules = {}
+        self.templates = {}
         self.running_threads = {}
         self.feishu_content_data = []  # 存储飞书内容数据
         self.current_session_id = None  # 当前运行会话ID
@@ -99,6 +101,7 @@ class VideoGeneratorGUI:
         self.apply_ffmpeg_path()
         self.load_workflows()
         self.load_schedules()
+        self.load_templates()
         
         # 创建GUI
         self.create_gui()
@@ -139,10 +142,11 @@ class VideoGeneratorGUI:
         
         # 创建各个标签页（将配置管理放在最后）
         self.create_feishu_async_tab()
-        self.create_simple_compose_tab()
-        self.create_manual_tab()
+        # self.create_simple_compose_tab()  # 隐藏简单合成
+        # self.create_manual_tab()  # 隐藏手动合成
         self.create_workflow_tab()
         self.create_schedule_tab()
+        self.create_templates_tab()
         self.create_log_tab()
         self.create_config_tab()
 
@@ -164,6 +168,175 @@ class VideoGeneratorGUI:
                 self.refresh_schedule_list()
         except Exception as _init_list_err:
             self.log_message(f"初始化列表失败: {_init_list_err}")
+
+    def get_current_template(self) -> dict:
+        """获取当前生效的模板配置"""
+        tmpl_key = ((self.config.get('template') or {}).get('active') or 'default')
+        return self.templates.get(tmpl_key) or self.templates.get('default') or {}
+
+    def create_templates_tab(self):
+        """创建模版管理标签页"""
+        tab = ttk.Frame(self.notebook)
+        self.notebook.add(tab, text="模版管理")
+
+        top = ttk.Frame(tab)
+        top.pack(fill='x', padx=20, pady=10)
+
+        ttk.Label(top, text="模版列表", font=("Arial", 14, "bold")).pack(side='left')
+
+        actions = ttk.Frame(tab)
+        actions.pack(fill='x', padx=20, pady=5)
+
+        self.template_list = ttk.Treeview(tab, columns=(
+            'key','name','title_color','title_highlight_color','title_bg','subtitle_color','subtitle_highlight_color','subtitle_bg'
+        ), show='headings', height=10)
+        for col, w in [
+            ('key',140), ('name',140), ('title_color',120), ('title_highlight_color',150),
+            ('title_bg',110), ('subtitle_color',120), ('subtitle_highlight_color',160), ('subtitle_bg',120)
+        ]:
+            self.template_list.heading(col, text=col)
+            self.template_list.column(col, width=w)
+        self.template_list.pack(fill='both', expand=True, padx=20, pady=10)
+
+        btns = ttk.Frame(tab)
+        btns.pack(fill='x', padx=20, pady=10)
+        ttk.Button(btns, text="新增模版", command=self.add_template_dialog).pack(side='left', padx=5)
+        ttk.Button(btns, text="编辑所选", command=self.edit_selected_template).pack(side='left', padx=5)
+        ttk.Button(btns, text="删除所选", command=self.delete_selected_template).pack(side='left', padx=5)
+        ttk.Button(btns, text="设为当前", command=self.set_active_template).pack(side='left', padx=5)
+
+        self.refresh_template_list()
+
+    def refresh_template_list(self):
+        for item in self.template_list.get_children():
+            self.template_list.delete(item)
+        for key, t in (self.templates or {}).items():
+            self.template_list.insert('', 'end', values=(
+                key,
+                t.get('name',''),
+                t.get('title_color',''),
+                t.get('title_highlight_color',''),
+                '是' if t.get('title_bg_enabled') else '否',
+                t.get('subtitle_color',''),
+                t.get('subtitle_highlight_color',''),
+                '是' if t.get('subtitle_bg_enabled') else '否'
+            ))
+
+    def _template_form(self, parent, data: dict) -> dict:
+        entries = {}
+        fields = [
+            ('name','模版名称'),
+            ('title_color','标题颜色'),
+            ('title_highlight_color','标题高亮色'),
+            ('title_bg_enabled','标题背景'),
+            ('subtitle_color','字幕颜色'),
+            ('subtitle_highlight_color','字幕高亮色'),
+            ('subtitle_bg_enabled','字幕背景')
+        ]
+        row = 0
+        for key, label in fields:
+            ttk.Label(parent, text=f"{label}:").grid(row=row, column=0, sticky='w', padx=5, pady=5)
+            if key.endswith('_enabled'):
+                var = tk.BooleanVar(value=bool(data.get(key, False)))
+                cb = ttk.Checkbutton(parent, variable=var)
+                cb.grid(row=row, column=1, sticky='w', padx=5, pady=5)
+                entries[key] = var
+            else:
+                e = ttk.Entry(parent, width=40)
+                e.insert(0, str(data.get(key, '')))
+                e.grid(row=row, column=1, padx=5, pady=5)
+                entries[key] = e
+            row += 1
+        return entries
+
+    def add_template_dialog(self):
+        win = tk.Toplevel(self.root)
+        win.title("新增模版")
+        frame = ttk.Frame(win)
+        frame.pack(fill='both', expand=True, padx=20, pady=20)
+        form = self._template_form(frame, {})
+        key_entry = ttk.Entry(frame, width=40)
+        ttk.Label(frame, text="模版Key (唯一标识):").grid(row=999, column=0, sticky='w', padx=5, pady=5)
+        key_entry.grid(row=999, column=1, padx=5, pady=5)
+
+        def on_save():
+            key = key_entry.get().strip() or f"tpl_{int(time.time())}"
+            if key in self.templates:
+                messagebox.showerror("错误", "模版Key已存在")
+                return
+            t = {}
+            for k, widget in form.items():
+                t[k] = widget.get() if not isinstance(widget, tk.BooleanVar) else bool(widget.get())
+            t['name'] = t.get('name') or key
+            self.templates[key] = t
+            self.save_templates()
+            self.refresh_template_list()
+            win.destroy()
+
+        ttk.Button(frame, text="保存", command=on_save).grid(row=1000, column=1, sticky='e', pady=10)
+
+    def _get_selected_template_key(self) -> Optional[str]:
+        sel = self.template_list.selection()
+        if not sel:
+            return None
+        vals = self.template_list.item(sel[0]).get('values') or []
+        return vals[0] if vals else None
+
+    def edit_selected_template(self):
+        key = self._get_selected_template_key()
+        if not key:
+            messagebox.showwarning("提示", "请先选择一个模版")
+            return
+        data = dict(self.templates.get(key) or {})
+        win = tk.Toplevel(self.root)
+        win.title(f"编辑模版 - {key}")
+        frame = ttk.Frame(win)
+        frame.pack(fill='both', expand=True, padx=20, pady=20)
+        form = self._template_form(frame, data)
+
+        def on_save():
+            t = {}
+            for k, widget in form.items():
+                t[k] = widget.get() if not isinstance(widget, tk.BooleanVar) else bool(widget.get())
+            t['name'] = t.get('name') or key
+            self.templates[key] = t
+            self.save_templates()
+            self.refresh_template_list()
+            win.destroy()
+
+        ttk.Button(frame, text="保存", command=on_save).grid(row=1000, column=1, sticky='e', pady=10)
+
+    def delete_selected_template(self):
+        key = self._get_selected_template_key()
+        if not key:
+            messagebox.showwarning("提示", "请先选择一个模版")
+            return
+        if messagebox.askyesno("确认", f"确定删除模版 {key} 吗？"):
+            try:
+                if key in self.templates:
+                    del self.templates[key]
+                self.save_templates()
+                self.refresh_template_list()
+            except Exception as e:
+                messagebox.showerror("错误", f"删除失败: {e}")
+
+    def set_active_template(self):
+        key = self._get_selected_template_key()
+        if not key:
+            messagebox.showwarning("提示", "请先选择一个模版")
+            return
+        cfg = self.config.get('template') or {}
+        cfg['active'] = key
+        if 'template' not in self.config:
+            self.config['template'] = cfg
+        else:
+            self.config['template'].update(cfg)
+        try:
+            with open(self.config_file, 'w', encoding='utf-8') as f:
+                json.dump(self.config, f, ensure_ascii=False, indent=2)
+            messagebox.showinfo("成功", f"已设置当前模版: {key}")
+        except Exception as e:
+            messagebox.showerror("错误", f"保存配置失败: {e}")
     
     def create_config_tab(self):
         """创建配置标签页"""
@@ -757,6 +930,38 @@ class VideoGeneratorGUI:
                 self.schedules = {}
         else:
             self.schedules = {}
+
+    def load_templates(self):
+        """加载模板数据"""
+        try:
+            if os.path.exists(self.templates_file):
+                with open(self.templates_file, 'r', encoding='utf-8') as f:
+                    self.templates = json.load(f)
+            else:
+                # 初始化一个默认模板
+                self.templates = {
+                    'default': {
+                        'name': '默认模版',
+                        'title_color': '#FFFFFF',
+                        'title_highlight_color': '#FFD700',
+                        'title_bg_enabled': True,
+                        'subtitle_color': '#FFFFFF',
+                        'subtitle_highlight_color': '#00FFFF',
+                        'subtitle_bg_enabled': True
+                    }
+                }
+                self.save_templates()
+        except Exception as e:
+            self.log_message(f"加载模板数据失败: {e}")
+            self.templates = {}
+
+    def save_templates(self):
+        """保存模板数据"""
+        try:
+            with open(self.templates_file, 'w', encoding='utf-8') as f:
+                json.dump(self.templates, f, ensure_ascii=False, indent=2)
+        except Exception as e:
+            self.log_message(f"保存模板数据失败: {e}")
     
     def save_schedules(self):
         """保存定时任务数据"""

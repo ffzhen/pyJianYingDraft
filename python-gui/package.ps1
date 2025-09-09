@@ -28,26 +28,27 @@ Remove-Item -Force        (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip')
 Remove-Item -Force        (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip') -ErrorAction SilentlyContinue
 Remove-Item -Force        (Join-Path $PSScriptRoot 'VideoBatch_console.spec') -ErrorAction SilentlyContinue
 
-Write-Host "[4/6] Run PyInstaller (GUI build)" -ForegroundColor Cyan
-# Optional ffmpeg include
-$ffmpeg = Join-Path $PSScriptRoot 'bin\ffmpeg.exe'
-$ffmpegArgs = @()
-if (Test-Path $ffmpeg) {
-  Write-Host "  - bundling ffmpeg.exe" -ForegroundColor DarkGreen
-  $ffmpegArgs = @('--add-binary', ".\bin\ffmpeg.exe;bin")
-}
-Push-Location $PSScriptRoot
-pyinstaller -w -F `
-  video_generator_gui.py `
-  --name FeishuVideoBatch `
-  --paths .. `
-  --additional-hooks-dir hooks `
-  --add-data "..\workflow;workflow" `
-  --add-data "..\pyJianYingDraft\assets;pyJianYingDraft\assets" `
-  --add-data "config.json;." `
-  --add-data "..\resource;resource" `
-  @ffmpegArgs | Out-Host
-Pop-Location
+### [4/6] GUI build (disabled for now)
+# Write-Host "[4/6] Run PyInstaller (GUI build)" -ForegroundColor Cyan
+# # Optional ffmpeg include
+# $ffmpeg = Join-Path $PSScriptRoot 'bin\ffmpeg.exe'
+# $ffmpegArgs = @()
+# if (Test-Path $ffmpeg) {
+#   Write-Host "  - bundling ffmpeg.exe" -ForegroundColor DarkGreen
+#   $ffmpegArgs = @('--add-binary', ".\bin\ffmpeg.exe;bin")
+# }
+# Push-Location $PSScriptRoot
+# pyinstaller -w -F `
+#   video_generator_gui.py `
+#   --name FeishuVideoBatch `
+#   --paths .. `
+#   --additional-hooks-dir hooks `
+#   --add-data "..\workflow;workflow" `
+#   --add-data "..\pyJianYingDraft\assets;pyJianYingDraft\assets" `
+#   --add-data "config.json;." `
+#   --add-data "..\resource;resource" `
+#   @ffmpegArgs | Out-Host
+# Pop-Location
 
 Write-Host "[5/6] Run PyInstaller (Console build)" -ForegroundColor Cyan
 Push-Location $PSScriptRoot
@@ -63,21 +64,19 @@ pyinstaller -c -F `
   @ffmpegArgs | Out-Host
 Pop-Location
 
-Write-Host "[6/6] Create zips (EXE only)" -ForegroundColor Cyan
-$guiExe = Join-Path $PSScriptRoot 'dist\FeishuVideoBatch.exe'
-if (Test-Path $guiExe) {
-  if (Test-Path (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip')) { Remove-Item (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip') -Force }
-  Compress-Archive -Path $guiExe -DestinationPath (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip') -Force
-}
-$consoleExe = Join-Path $PSScriptRoot 'dist\VideoBatch_console.exe'
-if (Test-Path $consoleExe) {
-  if (Test-Path (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip')) { Remove-Item (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip') -Force }
-  Compress-Archive -Path $consoleExe -DestinationPath (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip') -Force
-}
+### [6/6] Create zips (disabled; only need dist\VideoBatch_console.exe)
+# Write-Host "[6/6] Create zips (EXE only)" -ForegroundColor Cyan
+# $guiExe = Join-Path $PSScriptRoot 'dist\FeishuVideoBatch.exe'
+# if (Test-Path $guiExe) {
+#   if (Test-Path (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip')) { Remove-Item (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip') -Force }
+#   Compress-Archive -Path $guiExe -DestinationPath (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip') -Force
+# }
+# $consoleExe = Join-Path $PSScriptRoot 'dist\VideoBatch_console.exe'
+# if (Test-Path $consoleExe) {
+#   if (Test-Path (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip')) { Remove-Item (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip') -Force }
+#   Compress-Archive -Path $consoleExe -DestinationPath (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip') -Force
+# }
 
 Write-Host "Done" -ForegroundColor Green
-Write-Host "  EXE: " (Join-Path $PSScriptRoot 'dist\FeishuVideoBatch.exe')
-Write-Host "  ZIP: " (Join-Path $PSScriptRoot 'FeishuVideoBatch_win64.zip')
 Write-Host "  EXE (console): " (Join-Path $PSScriptRoot 'dist\VideoBatch_console.exe')
-Write-Host "  ZIP (console): " (Join-Path $PSScriptRoot 'VideoBatch_console_win64.zip')
 
