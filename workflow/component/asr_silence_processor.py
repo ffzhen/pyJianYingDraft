@@ -28,6 +28,12 @@ class ASRSilenceDetector:
         """
         self.min_pause_duration = min_pause_duration
         self.max_word_gap = max_word_gap
+        # 比较时的公差，避免浮点误差导致 0.099999 与 0.100 判断不相等
+        self._compare_places = 3  # 以毫秒级（3位小数）比较
+
+    def _ge_with_tolerance(self, a: float, b: float) -> bool:
+        """四舍五入到固定小数位再比较，避免浮点精度误差"""
+        return round(a, self._compare_places) >= round(b, self._compare_places)
         
     def detect_pauses_from_asr(self, asr_result: Dict[str, Any]) -> List[Tuple[float, float]]:
         """
@@ -61,8 +67,8 @@ class ASRSilenceDetector:
                     
                     pause_duration = curr_start - prev_end
                     print(f"[DEBUG] Utterance间停顿: {prev_end:.3f}s - {curr_start:.3f}s (时长: {pause_duration:.3f}s)")
-                    
-                    if pause_duration >= self.min_pause_duration:
+                    print(f"[DEBUG] 最小停顿时长: {self.min_pause_duration:.3f}s")
+                    if self._ge_with_tolerance(pause_duration, self.min_pause_duration):
                         pause_segments.append((prev_end, curr_start))
                         print(f"[DEBUG] ✓ 添加utterance间停顿: {prev_end:.3f}s - {curr_start:.3f}s")
                 
@@ -76,7 +82,8 @@ class ASRSilenceDetector:
                     
                     word_gap = next_start - current_end
                     
-                    if word_gap >= self.max_word_gap:
+                    # 文字间的间隙：若大于等于最小停顿阈值，也视为需要移除的停顿
+                    if self._ge_with_tolerance(word_gap, self.min_pause_duration):
                         pause_segments.append((current_end, next_start))
             
             # 检查音频开始和结束的停顿
@@ -89,7 +96,7 @@ class ASRSilenceDetector:
                 first_word_start = first_utterance.get('start_time', 0) / 1000
                 print(f"[DEBUG] 音频开始停顿: 0.000s - {first_word_start:.3f}s (时长: {first_word_start:.3f}s)")
                 
-                if first_word_start >= self.min_pause_duration:
+                if self._ge_with_tolerance(first_word_start, self.min_pause_duration):
                     pause_segments.append((0.0, first_word_start))
                     print(f"[DEBUG] ✓ 添加音频开始停顿: 0.000s - {first_word_start:.3f}s")
                 else:
@@ -100,7 +107,7 @@ class ASRSilenceDetector:
                 end_pause_duration = total_duration - last_word_end
                 print(f"[DEBUG] 音频结束停顿: {last_word_end:.3f}s - {total_duration:.3f}s (时长: {end_pause_duration:.3f}s)")
                 
-                if end_pause_duration >= self.min_pause_duration:
+                if self._ge_with_tolerance(end_pause_duration, self.min_pause_duration):
                     pause_segments.append((last_word_end, total_duration))
                     print(f"[DEBUG] ✓ 添加音频结束停顿: {last_word_end:.3f}s - {total_duration:.3f}s")
                 else:

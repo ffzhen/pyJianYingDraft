@@ -41,12 +41,13 @@ def log_with_time(message: str, start_time: datetime = None):
 class CozeVideoWorkflow:
     """完整的Coze视频工作流"""
     
-    def __init__(self, draft_folder_path: str, project_name: str = None):
+    def __init__(self, draft_folder_path: str, project_name: str = None, template_config: Dict[str, Any] = None):
         """初始化工作流
         
         Args:
             draft_folder_path: 剪映草稿文件夹路径
             project_name: 项目名称（可选，如果不提供将使用title+时间戳生成）
+            template_config: 模板配置，包含标题和字幕的样式设置
         """
         self.bearer_token = "cztei_hXqXzOIBKS6Pch9E75ZkGzF4uELK37JliSi65Ypb1Mjr8vfcBqWAC99o0zQI24Y9F"
         self.workflow_id = "7545326358185525248"
@@ -60,6 +61,7 @@ class CozeVideoWorkflow:
         # 保存参数
         self.draft_folder_path = draft_folder_path
         self.base_project_name = project_name
+        self.template_config = template_config or {}
         self.video_workflow = None  # 稍后初始化
         
         # 为并发安全，生成唯一的项目名称
@@ -316,7 +318,7 @@ class CozeVideoWorkflow:
             
             # 初始化视频工作流（使用动态生成的项目名称）
             if not self.video_workflow:
-                self.video_workflow = VideoEditingWorkflow(self.draft_folder_path, project_name)
+                self.video_workflow = VideoEditingWorkflow(self.draft_folder_path, project_name, self.template_config)
                 log_with_time(f"🛠️  视频工作流已初始化: {project_name}", self.start_time)
             
             # 配置视频合成参数

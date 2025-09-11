@@ -37,12 +37,13 @@ except ImportError:
 class VideoEditingWorkflow:
     """视频编辑工作流类，基于flow.json的逻辑实现"""
     
-    def __init__(self, draft_folder_path: str, project_name: str = "flow_project"):
+    def __init__(self, draft_folder_path: str, project_name: str = "flow_project", template_config: Dict[str, Any] = None):
         """初始化工作流
         
         Args:
             draft_folder_path: 剪映草稿文件夹路径
             project_name: 项目名称
+            template_config: 模板配置，包含标题和字幕的样式设置
         """
         self.draft_folder = draft.DraftFolder(draft_folder_path)
         self.project_name = project_name
@@ -55,6 +56,10 @@ class VideoEditingWorkflow:
         self.silence_remover = None  # 停顿移除器
         self.digital_video_path = None  # 数字人视频路径
         self.material_video_path = None  # 素材视频路径
+        
+        # 模板配置
+        self.template_config = template_config or {}
+        self._init_template_config()
         
         # 初始化字幕相关属性
         self.adjusted_subtitles = None  # 调整后的字幕（停顿移除后）
@@ -69,6 +74,111 @@ class VideoEditingWorkflow:
         
         # 初始化日志系统
         self._init_logging()
+    
+    def _init_template_config(self):
+        """初始化模板配置，设置默认值"""
+        # 标题样式默认值
+        self.title_config = {
+            'color': self.template_config.get('title_color', '#FFFFFF'),
+            'highlight_color': self.template_config.get('title_highlight_color', '#FFD700'),
+            'bg_enabled': self.template_config.get('title_bg_enabled', True),
+            'font': self.template_config.get('title_font', '俪金黑'),
+            'font_size': float(self.template_config.get('title_font_size', '15')),
+            'scale': float(self.template_config.get('title_scale', '1.0')),
+            'line_spacing': float(self.template_config.get('title_line_spacing', '4')),
+            'shadow_enabled': self.template_config.get('title_shadow_enabled', False)
+        }
+        
+        # 字幕样式默认值
+        self.subtitle_config = {
+            'color': self.template_config.get('subtitle_color', '#FFFFFF'),
+            'highlight_color': self.template_config.get('subtitle_highlight_color', '#00FFFF'),
+            'bg_enabled': self.template_config.get('subtitle_bg_enabled', True),
+            'font': self.template_config.get('subtitle_font', '俪金黑'),
+            'font_size': float(self.template_config.get('subtitle_font_size', '18')),
+            'scale': float(self.template_config.get('subtitle_scale', '1.0')),
+            'shadow_enabled': self.template_config.get('subtitle_shadow_enabled', False)
+        }
+        
+        # 封面样式默认值
+        self.cover_config = {
+            'background': self.template_config.get('cover_background', ''),
+            'title_font': self.template_config.get('cover_title_font', '阳华体'),
+            'title_color': self.template_config.get('cover_title_color', '#FFFFFF'),
+            'title_size': float(self.template_config.get('cover_title_size', '24')),
+            'subtitle_font': self.template_config.get('cover_subtitle_font', '俪金黑'),
+            'subtitle_color': self.template_config.get('cover_subtitle_color', '#FFFFFF'),
+            'subtitle_size': float(self.template_config.get('cover_subtitle_size', '18')),
+            'title_shadow_enabled': self.template_config.get('cover_title_shadow_enabled', False),
+            'subtitle_shadow_enabled': self.template_config.get('cover_subtitle_shadow_enabled', True)
+        }
+        
+        # 字体映射 - 使用动态获取，支持任意字体名称
+        self.font_mapping = {}
+        
+        print(f"[TEMPLATE] 标题样式: {self.title_config}")
+        print(f"[TEMPLATE] 字幕样式: {self.subtitle_config}")
+        print(f"[TEMPLATE] 封面样式: {self.cover_config}")
+    
+    def save_project(self) -> str:
+        """保存项目并返回保存路径"""
+        if not self.script:
+            raise ValueError("请先创建草稿")
+        
+        # 获取草稿文件夹路径
+        draft_path = self.draft_folder.folder_path
+        project_path = os.path.join(draft_path, self.project_name)
+        
+        print(f"[SAVE] 项目已保存到: {project_path}")
+        return project_path
+    
+    def _get_font_type(self, font_name: str) -> Any:
+        """动态获取字体类型，支持任意字体名称"""
+        try:
+            # 直接通过字符串拼接获取字体类型
+            return getattr(draft.FontType, font_name)
+        except AttributeError:
+            # 如果字体不存在，尝试一些常见的映射
+            font_mappings = {
+                '思源黑体': '思源黑体',
+                '微软雅黑': '微软雅黑', 
+                '宋体': '宋体',
+                '黑体': '黑体',
+                '楷体': '楷体',
+                '仿宋': '仿宋',
+                '阳华体': '阳华体',
+                '俪金黑': '俪金黑'
+            }
+            
+            # 尝试映射后的名称
+            mapped_name = font_mappings.get(font_name, font_name)
+            try:
+                return getattr(draft.FontType, mapped_name)
+            except AttributeError:
+                # 如果还是找不到，返回默认字体
+                print(f"[WARN] 字体 '{font_name}' 不存在，使用默认字体 '阳华体'")
+                return draft.FontType.阳华体
+    
+    def _hex_to_rgb(self, hex_color: str) -> Tuple[float, float, float]:
+        """将十六进制颜色转换为RGB元组
+        
+        Args:
+            hex_color: 十六进制颜色字符串，如 '#FFFFFF'
+            
+        Returns:
+            RGB元组，取值范围[0, 1]
+        """
+        hex_color = hex_color.lstrip('#')
+        if len(hex_color) != 6:
+            return (1.0, 1.0, 1.0)  # 默认白色
+        
+        try:
+            r = int(hex_color[0:2], 16) / 255.0
+            g = int(hex_color[2:4], 16) / 255.0
+            b = int(hex_color[4:6], 16) / 255.0
+            return (r, g, b)
+        except ValueError:
+            return (1.0, 1.0, 1.0)  # 默认白色
         
     def _init_logging(self):
         """初始化日志系统"""
@@ -354,7 +464,7 @@ class VideoEditingWorkflow:
                              *,
                              transform_y: float = 0.72,
                              line_spacing: int = 4,
-                             highlight_color: Tuple[float, float, float] = (1.0, 0.7529411765, 0.2470588235),
+                             highlight_color: Tuple[float, float, float] = None,
                              track_name: str = "标题字幕轨道") -> draft.TextSegment:
         """添加三行标题：中间一行高亮。
         - 字体：俪金黑；字号：15；左对齐；max_line_width=0.6；自动换行
@@ -362,6 +472,16 @@ class VideoEditingWorkflow:
         """
         if not self.script:
             raise ValueError("请先创建草稿")
+
+        # 使用模板配置或默认值
+        if highlight_color is None:
+            highlight_color = self._hex_to_rgb(self.title_config['highlight_color'])
+        
+        title_font = self._get_font_type(self.title_config['font'])
+        title_color = self._hex_to_rgb(self.title_config['color'])
+        title_size = self.title_config['font_size']
+        title_scale = self.title_config['scale']
+        title_line_spacing = int(self.title_config['line_spacing'])  # 转换为整数，默认4
 
         lines = self._split_title_to_three_lines(title)
         # 保障三行
@@ -375,21 +495,36 @@ class VideoEditingWorkflow:
             duration = round(max(1.0, effective_duration) if effective_duration > 0 else 5.0, 2)
 
         style = draft.TextStyle(
-            size=15.0,
+            size=title_size,
             bold=True,
             align=0,  # 左对齐
-            color=(1.0, 1.0, 1.0),
+            color=title_color,
             # auto_wrapping=True,
             max_line_width=0.7,
-            line_spacing=line_spacing
+            line_spacing=title_line_spacing
         )
+
+        # 阴影（按模板开关）
+        title_shadow = None
+        try:
+            if hasattr(self, 'title_config') and self.title_config.get('shadow_enabled', False):
+                title_shadow = draft.TextShadow(
+                    alpha=0.8,
+                    color=(0.0, 0.0, 0.0),
+                    diffuse=20.0,
+                    distance=10.0,
+                    angle=-45.0
+                )
+        except Exception:
+            title_shadow = None
 
         seg = draft.TextSegment(
             text,
             trange(tim(f"{start:.6f}s"), tim(f"{duration:.6f}s")),
-            font=draft.FontType.俪金黑,
+            font=title_font,
             style=style,
-            clip_settings=draft.ClipSettings(transform_y=transform_y)
+            clip_settings=draft.ClipSettings(transform_y=transform_y, scale_x=title_scale, scale_y=title_scale),
+            shadow=title_shadow
         )
 
         # 中间行高亮：计算字符区间
@@ -421,6 +556,32 @@ class VideoEditingWorkflow:
         if self.project_duration > 0:
             print(f"[INFO] 项目总时长更新为: {self.project_duration:.6f} 秒 ，视频: {self.video_duration:.6f}s)")
     
+    def _get_video_duration(self, video_path: str) -> float:
+        """获取视频文件时长
+        
+        Args:
+            video_path: 视频文件路径
+            
+        Returns:
+            float: 视频时长（秒），失败返回0
+        """
+        try:
+            import subprocess
+            result = subprocess.run([
+                'ffprobe', '-v', 'quiet', '-show_entries', 'format=duration',
+                '-of', 'csv=p=0', video_path
+            ], capture_output=True, text=True)
+            
+            if result.returncode == 0:
+                duration = float(result.stdout.strip())
+                return duration
+            else:
+                print(f"[WARN] 无法获取视频时长: {result.stderr}")
+                return 0.0
+        except Exception as e:
+            print(f"[WARN] 获取视频时长失败: {e}")
+            return 0.0
+
     def _validate_duration_bounds(self, duration: float, context: str = "") -> float:
         """验证时长边界，确保不超过视频总时长
         
@@ -659,7 +820,7 @@ class VideoEditingWorkflow:
                 
                 # 2. 使用ASR处理音频停顿
                 asr_result = self.volcengine_asr.transcribe_audio_for_silence_detection(digital_video_url)
-                
+                print(f"[DEBUG] ASR识别结果: {asr_result}")
                 if asr_result:
                     # 3. 分析停顿段落
                     pause_detector = ASRSilenceDetector(min_pause_duration, max_word_gap)
@@ -675,7 +836,7 @@ class VideoEditingWorkflow:
                      
                         # 6. 调整字幕时间轴
                         adjusted_subtitles = self._adjust_subtitle_timings(
-                            subtitle_objects, pause_segments, time_offset
+                            subtitle_objects, pause_segments
                         )
                         self.adjusted_subtitles = adjusted_subtitles
                         self.original_subtitles = subtitle_objects
@@ -717,12 +878,8 @@ class VideoEditingWorkflow:
                                             font_type=draft.FontType.俪金黑,  # 俪金黑
                                             highlight_size=10.0,  # 高亮10号
                                             highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
-                                            scale=1.39)  # 缩放1.39
-                            
-                            # 为字幕添加背景色块
-                            self.add_caption_backgrounds(adjusted_subtitles, position="bottom", 
-                                                        bottom_transform_y=-0.3, scale=1.39,
-                                                        time_offset=time_offset)
+                                            scale=1.39,
+                                            time_offset=time_offset)  # 缩放1.39
                             
                             print(f"[OK] 调整后的字幕已添加（含关键词高亮）")
                         # else:
@@ -1291,14 +1448,15 @@ class VideoEditingWorkflow:
     def add_captions(self, caption_data: List[Dict[str, Any]] = None,
                     track_name: str = "内容字幕轨道", position: str = "bottom",
                     keywords: List[str] = None,
-                    base_font_size: float = 8.0,
-                    base_color: Tuple[float, float, float] = (1.0, 1.0, 1.0),
+                    base_font_size: float = None,
+                    base_color: Tuple[float, float, float] = None,
                     font_type: Optional[draft.FontType] = None,
-                    highlight_color: Tuple[float, float, float] = (1.0, 0.7529411765, 0.2470588235),
-                    highlight_size: float = 10.0,
+                    highlight_color: Tuple[float, float, float] = None,
+                    highlight_size: float = None,
                     bottom_transform_y: float = -0.3,
-                    scale: float = 1.39,
-                    time_offset: float = 0.0):
+                    scale: float = None,
+                    time_offset: float = 0.0,
+                    background_style: Dict[str, Any] = None):
         """添加字幕，支持关键词高亮
         
         Args:
@@ -1312,6 +1470,20 @@ class VideoEditingWorkflow:
         """
         if not self.script:
             raise ValueError("请先创建草稿")
+        
+        # 使用模板配置或默认值
+        if base_font_size is None:
+            base_font_size = self.subtitle_config['font_size']
+        if base_color is None:
+            base_color = self._hex_to_rgb(self.subtitle_config['color'])
+        if font_type is None:
+            font_type = self._get_font_type(self.subtitle_config['font'])
+        if highlight_color is None:
+            highlight_color = self._hex_to_rgb(self.subtitle_config['highlight_color'])
+        if highlight_size is None:
+            highlight_size = self.subtitle_config['font_size'] * 1.2
+        if scale is None:
+            scale = self.subtitle_config['scale'] * 1.39  # 保持原有的缩放倍数
             
         # 如果没有提供字幕数据，尝试使用调整后的字幕
         if caption_data is None:
@@ -1362,6 +1534,20 @@ class VideoEditingWorkflow:
             print(f"[DEBUG] 字幕时间参数: '{text}' -> start={start_time_str}, duration={duration_str} (偏移: {time_offset:.6f}s)")
                         
             # 创建文本片段，只传入当前文本中存在的关键词
+            # 阴影（按模板开关）
+            subtitle_shadow = None
+            try:
+                if hasattr(self, 'subtitle_config') and self.subtitle_config.get('shadow_enabled', False):
+                    subtitle_shadow = draft.TextShadow(
+                        alpha=0.8,
+                        color=(0.0, 0.0, 0.0),
+                        diffuse=20.0,
+                        distance=10.0,
+                        angle=-45.0
+                    )
+            except Exception:
+                subtitle_shadow = None
+
             text_segment = draft.TextSegment(
                 text,
                 trange(tim(start_time_str), tim(duration_str)),
@@ -1374,7 +1560,8 @@ class VideoEditingWorkflow:
                     align=0,
                     max_line_width=0.82
                 ),
-                clip_settings=draft.ClipSettings(transform_y=transform_y, scale_x=scale, scale_y=scale)
+                clip_settings=draft.ClipSettings(transform_y=transform_y, scale_x=scale, scale_y=scale),
+                shadow=subtitle_shadow
             )
 
             # 外部传入的关键词高亮：按给定颜色与字号
@@ -1398,6 +1585,23 @@ class VideoEditingWorkflow:
             
             text_segments.append(text_segment)
             self.script.add_segment(text_segment, track_name=track_name)
+        
+        # 根据模板配置添加字幕背景
+        if hasattr(self, 'subtitle_config') and self.subtitle_config.get('bg_enabled', False):
+            try:
+                self.add_caption_backgrounds(
+                    caption_data=caption_data,
+                    position=position,
+                    bottom_transform_y=bottom_transform_y,
+                    scale=scale,
+                    background_style=background_style,
+                    time_offset=time_offset
+                )
+                print(f"[TEMPLATE] 已添加字幕背景")
+            except Exception as e:
+                print(f"[ERROR] 添加字幕背景失败: {e}")
+        else:
+            print(f"[TEMPLATE] 字幕背景已禁用")
             
         return text_segments
     
@@ -1499,7 +1703,7 @@ class VideoEditingWorkflow:
             # 添加入场动画
             segment.add_animation(IntroType.淡入)
     
-    def process_workflow(self, inputs: Dict[str, Any], time_offset: float = 0.0) -> str:
+    def process_workflow(self, inputs: Dict[str, Any], time_offset: float = 0.0, template_config: Dict[str, Any] = None) -> str:
         """处理完整的工作流 - 专注音频转录生成字幕
         
         Args:
@@ -1515,6 +1719,7 @@ class VideoEditingWorkflow:
                 - background_music_path: 背景音乐文件路径 (可选)
                 - background_music_volume: 背景音乐音量 (默认0.3)
             time_offset: 前置时间差（秒），主片段整体往后迁移的时间 (默认0.0)
+            template_config: 模板配置，包含标题、字幕、封面等样式配置
                 
         Returns:
             草稿保存路径
@@ -1536,6 +1741,12 @@ class VideoEditingWorkflow:
         # # 验证必需参数
         # if not audio_url:
         #     raise ValueError("audio_url 是必需参数，用于音频转录")
+        
+        # 处理模板配置
+        if template_config:
+            self.template_config = template_config
+            self._init_template_config()
+            print(f"[TEMPLATE] 已应用模板配置")
         
         # 开始执行时间记录
         import time
@@ -1606,8 +1817,8 @@ class VideoEditingWorkflow:
             self.add_digital_human_video(
                     digital_video_url, 
                     remove_pauses=True, 
-                    min_pause_duration=0.1, 
-                    max_word_gap=0.8,
+                    min_pause_duration=0.01, 
+                    max_word_gap=0.1,
                     time_offset=effective_offset
                 )
         
@@ -1637,39 +1848,43 @@ class VideoEditingWorkflow:
         else:
             print("📋 未提供背景音乐路径，跳过背景音乐添加")
 
-        # 4.8 添加一个三行文本并应用背景样式（位于画面中部）
-        try:
-            multiline_text = "                                                           \n\n "
-            # 使用与截图一致的背景参数
-            background_style = {
-                "color": "#000000",      # 黑色
-                "alpha": 0.67,           # 不透明度 67%
-                "height": 1,          # 高度 31%
-                "width": 1,           # 宽度 14%
-                "horizontal_offset": 0.5, # 左右间隙 50%
-                "vertical_offset": 0.5,   # 上下间隙 50%
-                "round_radius": 0.0,
-                "style": 1
-            }
-            # 背景时长与标题一致：使用有效视频时长（确保不超过处理后视频长度，保留两位小数）
-            effective_duration = self.get_effective_video_duration()
-            display_duration = round(effective_duration if effective_duration > 0 else (self.audio_duration if self.audio_duration > 0 else 5.0), 6)
-            
-            # 验证背景时长不超过视频总时长
-            display_duration = self._validate_duration_bounds(display_duration, "标题背景")
-            self.add_styled_text_with_background(
-                text_content=multiline_text,
-                timerange_start=effective_offset,
-                timerange_duration=display_duration,
-                track_name="标题字幕背景",
-                position="center",
-                background_style=background_style,
-                text_transform_y=0.73,
-                line_spacing=4,
-                bg_height=0.48
-            )
-        except Exception as e:
-            print(f"[ERROR] 添加三行背景文字失败: {e}")
+        # 4.8 添加标题背景（根据模板配置）
+        if hasattr(self, 'title_config') and self.title_config.get('bg_enabled', False):
+            try:
+                multiline_text = "                                                           \n\n "
+                # 使用与截图一致的背景参数
+                background_style = {
+                    "color": "#000000",      # 黑色
+                    "alpha": 0.67,           # 不透明度 67%
+                    "height": 1,          # 高度 31%
+                    "width": 1,           # 宽度 14%
+                    "horizontal_offset": 0.5, # 左右间隙 50%
+                    "vertical_offset": 0.5,   # 上下间隙 50%
+                    "round_radius": 0.0,
+                    "style": 1
+                }
+                # 背景时长与标题一致：使用有效视频时长（确保不超过处理后视频长度，保留两位小数）
+                effective_duration = self.get_effective_video_duration()
+                display_duration = round(effective_duration if effective_duration > 0 else (self.audio_duration if self.audio_duration > 0 else 5.0), 6)
+                
+                # 验证背景时长不超过视频总时长
+                display_duration = self._validate_duration_bounds(display_duration, "标题背景")
+                self.add_styled_text_with_background(
+                    text_content=multiline_text,
+                    timerange_start=effective_offset,
+                    timerange_duration=display_duration,
+                    track_name="标题字幕背景",
+                    position="center",
+                    background_style=background_style,
+                    text_transform_y=0.73,
+                    line_spacing=4,
+                    bg_height=0.48
+                )
+                print(f"[TEMPLATE] 已添加标题背景")
+            except Exception as e:
+                print(f"[ERROR] 添加标题背景失败: {e}")
+        else:
+            print(f"[TEMPLATE] 标题背景已禁用")
         
         # 5. 生成视频标题
         title = inputs.get('title', '')
@@ -1684,7 +1899,6 @@ class VideoEditingWorkflow:
                 duration=title_duration,
                 transform_y=0.72,
                 line_spacing=4,
-                highlight_color=(1.0, 0.7529411765, 0.2470588235),  # #ffc03f
                 track_name="标题字幕轨道"
             )
         
@@ -2381,6 +2595,20 @@ class VideoEditingWorkflow:
         try:
             # 添加上方字幕到标题字幕轨道
             if top_text:
+                # 按模板控制封面标题阴影
+                cover_title_shadow = None
+                try:
+                    if hasattr(self, 'cover_config') and self.cover_config.get('title_shadow_enabled', False):
+                        cover_title_shadow = draft.TextShadow(
+                            alpha=0.8,
+                            color=(0.0, 0.0, 0.0),
+                            diffuse=20.0,
+                            distance=10.0,
+                            angle=-45.0
+                        )
+                except Exception:
+                    cover_title_shadow = None
+
                 top_segment = draft.TextSegment(
                     top_text,
                     draft.trange(draft.tim("0s"), draft.tim(f"{self.cover_duration:.6f}s")),
@@ -2393,7 +2621,8 @@ class VideoEditingWorkflow:
                        
                         max_line_width=0.9
                     ),
-                    clip_settings=draft.ClipSettings(transform_y=0.55, scale_x=1.9, scale_y=1.9)  # 上方位置
+                    clip_settings=draft.ClipSettings(transform_y=0.55, scale_x=1.9, scale_y=1.9),  # 上方位置
+                    shadow=cover_title_shadow
                 )
                 self.script.add_segment(top_segment, track_name="标题字幕轨道")
                 segments.append(top_segment)
@@ -2447,6 +2676,20 @@ class VideoEditingWorkflow:
                         underline=False
                     ))
                 
+                # 按模板控制封面副标题阴影
+                cover_subtitle_shadow = None
+                try:
+                    if hasattr(self, 'cover_config') and self.cover_config.get('subtitle_shadow_enabled', False):
+                        cover_subtitle_shadow = draft.TextShadow(
+                            alpha=0.8,
+                            color=(0.0, 0.0, 0.0),
+                            diffuse=20.0,
+                            distance=10.0,
+                            angle=-45.0
+                        )
+                except Exception:
+                    cover_subtitle_shadow = None
+
                 bottom_segment = draft.TextSegment(
                     combined_text,
                     draft.trange(draft.tim("0s"), draft.tim(f"{self.cover_duration:.6f}s")),
@@ -2460,13 +2703,7 @@ class VideoEditingWorkflow:
                         line_spacing=4  # 行间距4
                     ),
                     clip_settings=draft.ClipSettings(transform_y=-0.48, scale_x=1.21, scale_y=1.21),  # 下方位置
-                    shadow=draft.TextShadow(
-                        alpha=0.8,
-                        color=(0.0, 0.0, 0.0),
-                        diffuse=20.0,
-                        distance=10.0,
-                        angle=-45.0
-                    )
+                    shadow=cover_subtitle_shadow
                 )
                 
                 # 手动设置高亮范围
@@ -2505,10 +2742,10 @@ def main():
         # 'audio_url': 'https://oss.oemi.jdword.com/prod/temp/srt/V20250901152556001.wav',
         # 'title': '火山引擎ASR智能字幕演示',
         # "audio_url": "https://oss.oemi.jdword.com/prod/temp/srt/V20250904223919001.wav",
-        "content": "半辈子追房涨跌年轻人安稳何在, content: 没房子的时候，工资跑不过房价；\n咬牙买下之后，房价却开始回调，资产在不知不觉中缩水。\n曾经以为，买房就等于安稳，\n结果发现，压力才刚刚开始。\n\n拼了半辈子，竟追不上一套房的涨跌节奏。\n这不只是一个人的经历，\n而是一代人共同面对的现实。\n\n房价起落之间，承载着太多期待与无奈。\n这届年轻人，真的不容易。",
+        "content": "你们说现在大家都不敢买房，会不会就是最好的买房时候呀？然后大家都要买房的时候，反而房子不能买了吧。今年是十四五计划的最后一年，马上迎来十五五计划。我总觉得最近楼市这两个月有点过于风平浪静了，有没有可能再悄悄的憋大招呀？",
 
-        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250909223211001.mp4",     
-        "title": "半辈子追房涨跌年轻人安稳何在",
+        "digital_video_url": "https://oss.oemi.jdword.com/prod/order/video/202509/V20250908011407003.mp4",     
+        "title": "大家不买时买房大家买时不买对吗",
 
 
 
@@ -2550,7 +2787,37 @@ def main():
         # )
         # 计算封面时长作为时间偏移
         # cover_duration = cover_result['cover_duration']
-        save_path = workflow.process_workflow(inputs)
+        # 创建示例模板配置
+        template_config = {
+            'title_config': {
+                'color': '#FF0000',
+                'highlight_color': '#FFFF00',
+                'bg_enabled': True,
+                'font': '阳华体',
+                'font_size': 24.0,
+                'scale': 1.2,
+                'line_spacing': 1.5
+            },
+            'subtitle_config': {
+                'color': '#FFFFFF',
+                'highlight_color': '#00FF00',
+                'bg_enabled': False,
+                'font': '俪金黑',
+                'font_size': 18.0,
+                'scale': 1.0
+            },
+            'cover_config': {
+                'background': '',
+                'title_font': '阳华体',
+                'title_color': '#FFFFFF',
+                'title_size': 28.0,
+                'subtitle_font': '俪金黑',
+                'subtitle_color': '#CCCCCC',
+                'subtitle_size': 20.0
+            }
+        }
+        
+        save_path = workflow.process_workflow(inputs, template_config=template_config)
         print(f"\n[OK] 音频转录工作流完成!")
         print(f"剪映项目已保存到: {save_path}")
         print("[INFO] 请打开剪映查看生成的智能字幕视频项目")

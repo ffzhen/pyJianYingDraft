@@ -1,0 +1,34 @@
+{
+  "default": {
+    "name": "默认模版",
+    "title_color": "#FFFFFF",
+    "title_highlight_color": "#FFD700",
+    "title_bg_enabled": true,
+    "title_font": "俪金黑",
+    "title_font_size": "15",
+    "title_scale": "1.0",
+    "title_line_spacing": "4",
+    "subtitle_color": "#FFFFFF",
+    "subtitle_highlight_color": "#00FFFF",
+    "subtitle_bg_enabled": true,
+    "subtitle_font": "俪金黑",
+    "subtitle_font_size": "18",
+    "subtitle_scale": "1.0"
+  },
+  "tpl_1757433852": {
+    "name": "222",
+    "title_color": "#777777",
+    "title_highlight_color": "#ff0000",
+    "title_bg_enabled": false,
+    "title_font": "阳华体",
+    "title_font_size": "18",
+    "title_scale": "1.0",
+    "title_line_spacing": "",
+    "subtitle_color": "",
+    "subtitle_highlight_color": "",
+    "subtitle_bg_enabled": false,
+    "subtitle_font": "阳华体",
+    "subtitle_font_size": "18",
+    "subtitle_scale": "1.0"
+  }
+}

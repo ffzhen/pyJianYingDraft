@@ -75,7 +75,8 @@ class AsyncCozeProcessor:
                  workflow_id: str,
                  max_coze_concurrent: int = 16,
                  max_synthesis_workers: int = 4,
-                 poll_interval: int = 30):
+                 poll_interval: int = 30,
+                 template_config: Dict[str, Any] = None):
         """初始化异步处理器
         
         Args:
@@ -92,6 +93,7 @@ class AsyncCozeProcessor:
         self.max_coze_concurrent = max_coze_concurrent
         self.max_synthesis_workers = max_synthesis_workers
         self.poll_interval = poll_interval
+        self.template_config = template_config or {}
         
         # 任务管理
         self.tasks: Dict[str, AsyncCozeTask] = {}
@@ -329,7 +331,8 @@ class AsyncCozeProcessor:
             # 创建CozeVideoWorkflow实例
             workflow = CozeVideoWorkflow(
                 draft_folder_path=self.draft_folder_path,
-                project_name=task.project_name
+                project_name=task.project_name,
+                template_config=self.template_config
             )
             
             # 设置任务配置（synthesize_video方法需要）

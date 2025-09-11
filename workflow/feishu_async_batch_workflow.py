@@ -40,6 +40,7 @@ class FeishuAsyncBatchWorkflow:
         self.feishu_config = config.get('api_config', {})
         self.tables_config = config.get('tables', {})
         self.workflow_config = config.get('workflow_config', {})
+        self.template_config = config.get('template_config', {})
         
         # 剪映草稿路径
         self.draft_folder_path = self.workflow_config.get(
@@ -106,7 +107,8 @@ class FeishuAsyncBatchWorkflow:
             workflow_id=self.coze_workflow_id,
             max_coze_concurrent=self.max_coze_concurrent,
             max_synthesis_workers=self.max_synthesis_workers,
-            poll_interval=self.poll_interval
+            poll_interval=self.poll_interval,
+            template_config=self.template_config
         )
         
         # 设置回调函数
