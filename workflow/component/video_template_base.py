@@ -93,6 +93,7 @@ class VideoTemplateBase(ABC):
         self.script.add_track(TrackType.audio, "背景音乐轨道", relative_index=4)
         self.script.add_track(TrackType.text, "内容字幕轨道", relative_index=5)
         self.script.add_track(TrackType.text, "标题字幕轨道", relative_index=6)
+        self.script.add_track(TrackType.text, "English Subtitles Track", relative_index=7)
         
         return self.script
     

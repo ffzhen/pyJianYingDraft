@@ -257,7 +257,9 @@ class TextStyleRange:
     
     def __init__(self, start: int, end: int, color: Optional[Tuple[float, float, float]] = None, 
                  size: Optional[float] = None, bold: Optional[bool] = None, 
-                 italic: Optional[bool] = None, underline: Optional[bool] = None):
+                 italic: Optional[bool] = None, underline: Optional[bool] = None,
+                 font: Optional[EffectMeta] = None, scale: Optional[float] = None,
+                 shadow: Optional[TextShadow] = None):
         """
         创建文本样式范围
         
@@ -277,6 +279,9 @@ class TextStyleRange:
         self.bold = bold
         self.italic = italic
         self.underline = underline
+        self.font = font
+        self.scale = scale
+        self.shadow = shadow
 
 class TextSegment(VisualSegment):
     """文本片段类, 目前仅支持设置基本的字体样式"""
@@ -433,7 +438,9 @@ class TextSegment(VisualSegment):
 
     def add_highlight(self, start: int, end: int, color: Optional[Tuple[float, float, float]] = None,
                      size: Optional[float] = None, bold: Optional[bool] = None,
-                     italic: Optional[bool] = None, underline: Optional[bool] = None) -> "TextSegment":
+                     italic: Optional[bool] = None, underline: Optional[bool] = None,
+                     font: Optional[FontType] = None, scale: Optional[float] = None,
+                     shadow: Optional[TextShadow] = None) -> "TextSegment":
         """添加高亮范围到文本中
         
         Args:
@@ -444,15 +451,22 @@ class TextSegment(VisualSegment):
             bold (bool, optional): 是否加粗
             italic (bool, optional): 是否斜体
             underline (bool, optional): 是否下划线
+            font (FontType, optional): 字体类型
+            scale (float, optional): 在基础字号上的比例系数
+            shadow (TextShadow, optional): 高亮阴影效果
         
         Returns:
             TextSegment: 返回自身以支持链式调用
         """
+        print(f"add_highlight: {start}, {end}, {color}, {size}, {bold}, {italic}, {underline}, {font}, {scale}, {shadow}")
         if start < 0 or end > len(self.text) or start >= end:
             raise ValueError(f"Invalid range [{start}, {end}] for text length {len(self.text)}")
         
-        highlight_range = TextStyleRange(start, end, color, size, bold, italic, underline)
+        # FontType -> EffectMeta
+        _font_meta = font.value if font else None
+        highlight_range = TextStyleRange(start, end, color, size, bold, italic, underline, _font_meta, scale, shadow)
         self.highlight_ranges.append(highlight_range)
+        print(f"highlight_ranges: {self.highlight_ranges}")
         return self
 
     def add_bubble(self, effect_id: str, resource_id: str) -> "TextSegment":
@@ -544,6 +558,8 @@ class TextSegment(VisualSegment):
         # 使用高亮范围的属性，如果没有指定则使用默认样式
         color = highlight_range.color if highlight_range.color is not None else self.style.color
         size = highlight_range.size if highlight_range.size is not None else self.style.size
+        # scale是文本的独立属性，不需要用来缩放字号
+        # 字号直接使用配置的值
         bold = highlight_range.bold if highlight_range.bold is not None else self.style.bold
         italic = highlight_range.italic if highlight_range.italic is not None else self.style.italic
         underline = highlight_range.underline if highlight_range.underline is not None else self.style.underline
@@ -564,11 +580,21 @@ class TextSegment(VisualSegment):
             "strokes": [self.border.export_json()] if self.border else []
         }
         
+        # 添加scale属性（如果指定了的话）
+        if highlight_range.scale is not None:
+            style["scale"] = highlight_range.scale
+        
         # 添加useLetterColor标志以启用高亮颜色
         if highlight_range.color is not None:
             style["useLetterColor"] = True
         
-        if self.font:
+        # 优先使用高亮范围内指定的字体
+        if highlight_range.font is not None:
+            style["font"] = {
+                "id": highlight_range.font.resource_id,
+                "path": "D:"  # 并不会真正在此处放置字体文件
+            }
+        elif self.font:
             style["font"] = {
                 "id": self.font.resource_id,
                 "path": "D:"  # 并不会真正在此处放置字体文件
@@ -578,7 +604,11 @@ class TextSegment(VisualSegment):
                 "id": self.effect.effect_id,
                 "path": "C:"  # 并不会真正在此处放置素材文件
             }
-        if self.shadow:
+        
+        # 阴影：优先使用高亮范围的阴影，否则使用段落默认阴影
+        if getattr(highlight_range, 'shadow', None) is not None:
+            style["shadows"] = [highlight_range.shadow.export_json()]
+        elif self.shadow:
             style["shadows"] = [self.shadow.export_json()]
             
         return style

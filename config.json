@@ -16,7 +16,7 @@
     "token": "adac0afb-5fd4-4c66-badb-370a7ff42df5"
   },
   "jianying": {
-    "draft_folder_path": "C:\\Users\\nrgc\\AppData\\Local\\JianyingPro\\User Data\\Projects\\com.lveditor.draft"
+    "draft_folder_path": "D:\\jianying\\JianyingPro Drafts"
   },
   "proxy": {
     "http_proxy": "",
@@ -34,5 +34,11 @@
     "max_coze_concurrent": 8,
     "max_synthesis_workers": 2,
     "poll_interval": 30
+  },
+  "tools": {
+    "ffmpeg_path": ""
+  },
+  "audio": {
+    "bgm_path": ""
   }
 }

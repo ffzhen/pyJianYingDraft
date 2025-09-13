@@ -63,8 +63,9 @@ class VideoGeneratorGUI:
         try:
             sw = self.root.winfo_screenwidth()
             sh = self.root.winfo_screenheight()
-            w = min(1200, max(960, sw - 80))
-            h = min(800, max(640, sh - 120))
+            # 将窗口尺寸放大1.5倍
+            w = min(1800, max(1440, int((sw - 80) * 1.5)))
+            h = min(1200, max(960, int((sh - 120) * 1.5)))
             self.root.geometry(f"{w}x{h}")
             # 小屏幕上尽量最大化窗口，提高可视区域
             if sw < 1366 or sh < 768:
@@ -72,15 +73,16 @@ class VideoGeneratorGUI:
                     self.root.state('zoomed')
                 except Exception:
                     pass
-            self.root.minsize(900, 620)
+            self.root.minsize(1350, 930)  # 最小尺寸也放大1.5倍
         except Exception:
-            self.root.geometry("1200x800")
+            self.root.geometry("1800x1200")  # 默认尺寸也放大1.5倍
         
-        # 配置文件路径
-        self.config_file = "config.json"
-        self.workflows_file = "workflows.json"
-        self.schedules_file = "schedules.json"
-        self.templates_file = "templates.json"
+        # 配置文件路径 - 使用绝对路径确保在正确目录
+        script_dir = os.path.dirname(os.path.abspath(__file__))
+        self.config_file = os.path.join(script_dir, "config.json")
+        self.workflows_file = os.path.join(script_dir, "workflows.json")
+        self.schedules_file = os.path.join(script_dir, "schedules.json")
+        self.templates_file = os.path.join(script_dir, "templates.json")
         
         # 数据存储
         self.config = {}
@@ -179,47 +181,106 @@ class VideoGeneratorGUI:
         """验证和修正模板数据
         
         Args:
-            template_data: 原始模板数据
+            template_data: 原始模板数据（扁平格式）
             
         Returns:
-            验证后的模板数据
+            验证后的模板数据（扁平格式）
         """
         validated = {}
         
-        # 验证标题配置
-        validated['title_color'] = self._validate_color(template_data.get('title_color', '#FFFFFF'))
-        validated['title_highlight_color'] = self._validate_color(template_data.get('title_highlight_color', '#FFD700'))
-        # 兼容字符串形式的布尔值，例如 "true"/"false"
-        _tbg = template_data.get('title_bg_enabled', True)
+        # 验证标题样式
+        validated['title_color'] = self._validate_color(template_data.get('title_color', '#777777'))
+        validated['title_font'] = self._validate_font(template_data.get('title_font', '阳华体'))
+        validated['title_font_size'] = self._validate_font_size(template_data.get('title_font_size', '18.0'))
+        validated['title_scale'] = self._validate_scale(template_data.get('title_scale', '1.0'))
+        
+        _title_shadow = template_data.get('title_shadow_enabled', False)
+        if isinstance(_title_shadow, str):
+            validated['title_shadow_enabled'] = _title_shadow.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['title_shadow_enabled'] = bool(_title_shadow)
+
+        # 验证标题高亮样式
+        validated['title_highlight_color'] = self._validate_color(template_data.get('title_highlight_color', '#FF0000'))
+        validated['title_highlight_font'] = self._validate_font(template_data.get('title_highlight_font', '阳华体'))
+        validated['title_highlight_font_size'] = self._validate_font_size(template_data.get('title_highlight_font_size', '18.0'))
+        validated['title_highlight_scale'] = self._validate_scale(template_data.get('title_highlight_scale', '1.0'))
+        
+        _title_highlight_shadow = template_data.get('title_highlight_shadow_enabled', False)
+        if isinstance(_title_highlight_shadow, str):
+            validated['title_highlight_shadow_enabled'] = _title_highlight_shadow.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['title_highlight_shadow_enabled'] = bool(_title_highlight_shadow)
+
+        # 验证标题通用设置
+        _tbg = template_data.get('title_bg_enabled', False)
         if isinstance(_tbg, str):
             validated['title_bg_enabled'] = _tbg.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
         else:
             validated['title_bg_enabled'] = bool(_tbg)
-        validated['title_font'] = self._validate_font(template_data.get('title_font', '阳华体'))
-        validated['title_font_size'] = self._validate_font_size(template_data.get('title_font_size', '24'))
-        validated['title_scale'] = self._validate_scale(template_data.get('title_scale', '1.0'))
         validated['title_line_spacing'] = self._validate_scale(template_data.get('title_line_spacing', '1.0'))
+        validated['title_line_count'] = self._validate_line_count(template_data.get('title_line_count', '3'))
         
-        # 验证字幕配置
+        # 验证字幕样式
         validated['subtitle_color'] = self._validate_color(template_data.get('subtitle_color', '#FFFFFF'))
+        validated['subtitle_font'] = self._validate_font(template_data.get('subtitle_font', '俪金黑'))
+        validated['subtitle_font_size'] = self._validate_font_size(template_data.get('subtitle_font_size', '18.0'))
+        validated['subtitle_scale'] = self._validate_scale(template_data.get('subtitle_scale', '1.0'))
+        
+        _subtitle_shadow = template_data.get('subtitle_shadow_enabled', False)
+        if isinstance(_subtitle_shadow, str):
+            validated['subtitle_shadow_enabled'] = _subtitle_shadow.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['subtitle_shadow_enabled'] = bool(_subtitle_shadow)
+
+        # 验证字幕高亮样式
         validated['subtitle_highlight_color'] = self._validate_color(template_data.get('subtitle_highlight_color', '#00FFFF'))
+        validated['subtitle_highlight_font'] = self._validate_font(template_data.get('subtitle_highlight_font', '俪金黑'))
+        validated['subtitle_highlight_font_size'] = self._validate_font_size(template_data.get('subtitle_highlight_font_size', '18.0'))
+        validated['subtitle_highlight_scale'] = self._validate_scale(template_data.get('subtitle_highlight_scale', '1.0'))
+        
+        _subtitle_highlight_shadow = template_data.get('subtitle_highlight_shadow_enabled', False)
+        if isinstance(_subtitle_highlight_shadow, str):
+            validated['subtitle_highlight_shadow_enabled'] = _subtitle_highlight_shadow.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['subtitle_highlight_shadow_enabled'] = bool(_subtitle_highlight_shadow)
+
+        # 验证字幕通用设置
         _sbg = template_data.get('subtitle_bg_enabled', True)
         if isinstance(_sbg, str):
             validated['subtitle_bg_enabled'] = _sbg.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
         else:
             validated['subtitle_bg_enabled'] = bool(_sbg)
-        validated['subtitle_font'] = self._validate_font(template_data.get('subtitle_font', '俪金黑'))
-        validated['subtitle_font_size'] = self._validate_font_size(template_data.get('subtitle_font_size', '18'))
-        validated['subtitle_scale'] = self._validate_scale(template_data.get('subtitle_scale', '1.0'))
+
+        # 英文字幕样式
+        _eng = template_data.get('subtitle_english_enabled', False)
+        if isinstance(_eng, str):
+            validated['subtitle_english_enabled'] = _eng.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['subtitle_english_enabled'] = bool(_eng)
+        validated['subtitle_english_color'] = self._validate_color(template_data.get('subtitle_english_color', '#CCCCCC'))
+        validated['subtitle_english_font'] = self._validate_font(template_data.get('subtitle_english_font', 'Arial'))
+        validated['subtitle_english_font_size'] = self._validate_font_size(template_data.get('subtitle_english_font_size', '16'))
+        validated['subtitle_english_scale'] = self._validate_scale(template_data.get('subtitle_english_scale', '0.9'))
+        _eng_shadow = template_data.get('subtitle_english_shadow_enabled', False)
+        if isinstance(_eng_shadow, str):
+            validated['subtitle_english_shadow_enabled'] = _eng_shadow.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        else:
+            validated['subtitle_english_shadow_enabled'] = bool(_eng_shadow)
+        validated['subtitle_english_vertical_offset'] = self._validate_scale(template_data.get('subtitle_english_vertical_offset', '0.1'))
         
         # 验证封面配置
         validated['cover_background'] = str(template_data.get('cover_background', '')).strip()
         validated['cover_title_font'] = self._validate_font(template_data.get('cover_title_font', '阳华体'))
         validated['cover_title_color'] = self._validate_color(template_data.get('cover_title_color', '#FFFFFF'))
         validated['cover_title_size'] = self._validate_font_size(template_data.get('cover_title_size', '24'))
+        validated['cover_title_scale'] = self._validate_scale(template_data.get('cover_title_scale', '1.0'))
+        validated['cover_title_shadow_enabled'] = self._validate_boolean(template_data.get('cover_title_shadow_enabled', False))
         validated['cover_subtitle_font'] = self._validate_font(template_data.get('cover_subtitle_font', '俪金黑'))
         validated['cover_subtitle_color'] = self._validate_color(template_data.get('cover_subtitle_color', '#FFFFFF'))
         validated['cover_subtitle_size'] = self._validate_font_size(template_data.get('cover_subtitle_size', '18'))
+        validated['cover_subtitle_scale'] = self._validate_scale(template_data.get('cover_subtitle_scale', '1.0'))
+        validated['cover_subtitle_highlight_color'] = self._validate_color(template_data.get('cover_subtitle_highlight_color', '#FFEF2C'))
         
         # 验证名称
         validated['name'] = str(template_data.get('name', '未命名模板')).strip() or '未命名模板'
@@ -238,10 +299,9 @@ class VideoGeneratorGUI:
         return '#FFFFFF'
     
     def _validate_font(self, font: str) -> str:
-        """验证字体"""
-        valid_fonts = ['阳华体', '俪金黑', '思源黑体', '微软雅黑', '宋体', '黑体', '楷体', '仿宋']
-        if font and font in valid_fonts:
-            return font
+        """验证字体 - 允许任何字体"""
+        if font and font.strip():
+            return font.strip()
         return '阳华体'
     
     def _validate_font_size(self, size: str) -> str:
@@ -263,6 +323,26 @@ class VideoGeneratorGUI:
         except (ValueError, TypeError):
             pass
         return '1.0'
+    
+    def _validate_line_count(self, count: str) -> str:
+        """验证标题行数"""
+        try:
+            count_val = int(count)
+            if 1 <= count_val <= 5:  # 支持1-5行
+                return str(count_val)
+        except (ValueError, TypeError):
+            pass
+        return '3'  # 默认3行
+    
+    def _validate_boolean(self, value) -> bool:
+        """验证布尔值"""
+        if isinstance(value, bool):
+            return value
+        if isinstance(value, str):
+            return value.strip().lower() in ['1', 'true', 'yes', 'y', 'on']
+        if isinstance(value, (int, float)):
+            return bool(value)
+        return False
     
     def refresh_feishu_template_list(self):
         """刷新飞书模板选择列表"""
@@ -314,65 +394,72 @@ class VideoGeneratorGUI:
             return self.get_current_template()
 
     def create_templates_tab(self):
-        """创建模版管理标签页"""
+        """创建模版管理标签页 - 左右两栏布局"""
         tab = ttk.Frame(self.notebook)
         self.notebook.add(tab, text="模版管理")
 
-        top = ttk.Frame(tab)
-        top.pack(fill='x', padx=20, pady=10)
+        # 创建主容器，使用PanedWindow实现左右分栏
+        main_paned = ttk.PanedWindow(tab, orient='horizontal')
+        main_paned.pack(fill='both', expand=True, padx=10, pady=10)
 
-        ttk.Label(top, text="模版列表", font=("Arial", 14, "bold")).pack(side='left')
+        # ========== 左侧：模板列表 ==========
+        left_frame = ttk.Frame(main_paned)
+        main_paned.add(left_frame, weight=1)
 
-        actions = ttk.Frame(tab)
-        actions.pack(fill='x', padx=20, pady=5)
+        # 左侧标题和按钮
+        left_header = ttk.Frame(left_frame)
+        left_header.pack(fill='x', pady=(0, 10))
+        
+        ttk.Label(left_header, text="📋 模板列表", font=("Arial", 14, "bold")).pack(side='left')
+        
+        left_buttons = ttk.Frame(left_header)
+        left_buttons.pack(side='right')
+        ttk.Button(left_buttons, text="🔄 刷新", command=self.refresh_templates).pack(side='left', padx=2)
+        ttk.Button(left_buttons, text="➕ 新增", command=self.add_template_dialog).pack(side='left', padx=2)
+        ttk.Button(left_buttons, text="🗑️ 删除", command=self.delete_selected_template).pack(side='left', padx=2)
 
-        self.template_list = ttk.Treeview(tab, columns=(
-            'key','name','title_color','title_font','title_size','subtitle_color','subtitle_font','subtitle_size',
-            'cover_background','cover_title_font','cover_subtitle_font'
-        ), show='headings', height=10)
-        for col, w in [
-            ('key',120), ('name',120), ('title_color',100), ('title_font',120),
-            ('title_size',80), ('subtitle_color',100), ('subtitle_font',120), ('subtitle_size',80),
-            ('cover_background',150), ('cover_title_font',120), ('cover_subtitle_font',120)
-        ]:
-            self.template_list.heading(col, text=col)
-            self.template_list.column(col, width=w)
-        self.template_list.pack(fill='both', expand=True, padx=20, pady=10)
+        # 左侧模板列表 - 只显示key和name
+        style = ttk.Style()
+        style.configure("TemplateList.Treeview", rowheight=35)
+        
+        self.template_list = ttk.Treeview(left_frame, columns=('key', 'name'), show='headings', 
+                                        height=15, style="TemplateList.Treeview")
+        self.template_list.heading('key', text='模板ID')
+        self.template_list.heading('name', text='模板名称')
+        self.template_list.column('key', width=120, anchor='center')
+        self.template_list.column('name', width=180, anchor='w')
+        self.template_list.pack(fill='both', expand=True)
 
-        btns = ttk.Frame(tab)
-        btns.pack(fill='x', padx=20, pady=10)
-        ttk.Button(btns, text="新增模版", command=self.add_template_dialog).pack(side='left', padx=5)
-        ttk.Button(btns, text="编辑所选", command=self.edit_selected_template).pack(side='left', padx=5)
-        ttk.Button(btns, text="删除所选", command=self.delete_selected_template).pack(side='left', padx=5)
-        ttk.Button(btns, text="设为当前", command=self.set_active_template).pack(side='left', padx=5)
-        ttk.Button(btns, text="测试模版", command=self.test_selected_template).pack(side='left', padx=5)
+        # 绑定选择事件
+        self.template_list.bind('<<TreeviewSelect>>', self.on_template_select)
+        self.template_list.bind("<Button-3>", self.show_template_context_menu)
+        self.template_list.bind("<Double-1>", self.on_template_double_click)
 
-        self.refresh_template_list()
+        # ========== 右侧：模板详情 ==========
+        right_frame = ttk.Frame(main_paned)
+        main_paned.add(right_frame, weight=2)
 
-    def refresh_template_list(self):
-        for item in self.template_list.get_children():
-            self.template_list.delete(item)
-        for key, t in (self.templates or {}).items():
-            self.template_list.insert('', 'end', values=(
-                key,
-                t.get('name',''),
-                t.get('title_color',''),
-                t.get('title_font',''),
-                t.get('title_font_size',''),
-                t.get('subtitle_color',''),
-                t.get('subtitle_font',''),
-                t.get('subtitle_font_size',''),
-                t.get('cover_background',''),
-                t.get('cover_title_font',''),
-                t.get('cover_subtitle_font','')
-            ))
+        # 右侧标题和按钮
+        right_header = ttk.Frame(right_frame)
+        right_header.pack(fill='x', pady=(0, 10))
+        
+        self.template_detail_title = ttk.Label(right_header, text="📝 模板详情", font=("Arial", 14, "bold"))
+        self.template_detail_title.pack(side='left')
+        
+        right_buttons = ttk.Frame(right_header)
+        right_buttons.pack(side='right')
+        ttk.Button(right_buttons, text="💾 保存", command=self.save_template_details).pack(side='left', padx=2)
+        self.test_template_btn = ttk.Button(right_buttons, text="🧪 测试", command=self.test_selected_template)
+        self.test_template_btn.pack(side='left', padx=2)
+        ttk.Button(right_buttons, text="⭐ 设为当前", command=self.set_active_template).pack(side='left', padx=2)
 
-    def _template_form(self, parent, data: dict) -> dict:
-        entries = {}
+        # 右侧详情区域 - 使用滚动区域
+        self.detail_frame = ttk.Frame(right_frame)
+        self.detail_frame.pack(fill='both', expand=True)
         
         # 创建滚动区域
-        canvas = tk.Canvas(parent)
-        scrollbar = ttk.Scrollbar(parent, orient="vertical", command=canvas.yview)
+        canvas = tk.Canvas(self.detail_frame)
+        scrollbar = ttk.Scrollbar(self.detail_frame, orient="vertical", command=canvas.yview)
         scrollable_frame = ttk.Frame(canvas)
         
         scrollable_frame.bind(
@@ -382,137 +469,588 @@ class VideoGeneratorGUI:
         
         canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
         canvas.configure(yscrollcommand=scrollbar.set)
+
+        self.template_detail_form = scrollable_frame  # 保存引用用于后续操作
+
+        # 布局滚动区域
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        # 初始化模板详情表单
+        self.template_detail_entries = {}
+        self.current_template_key = None
+
+        # 创建右键菜单
+        self.template_context_menu = tk.Menu(self.root, tearoff=0)
+        self.template_context_menu.add_command(label="📝 编辑模板", command=self.edit_selected_template)
+        self.template_context_menu.add_command(label="🗑️ 删除模板", command=self.delete_selected_template)
+        self.template_context_menu.add_separator()
+        self.template_context_menu.add_command(label="🧪 测试模板", command=self.test_selected_template)
+        self.template_context_menu.add_command(label="⭐ 设为当前模板", command=self.set_active_template)
+
+        # 显示loading状态
+        self.show_template_loading()
+        
+        # 异步加载模板数据
+        import threading
+        threading.Thread(target=self._load_templates_async, daemon=True).start()
+
+    def show_template_loading(self):
+        """显示模板加载中的状态"""
+        # 清除右侧详情面板
+        self.clear_template_details()
+        
+        # 在右侧面板显示loading状态
+        self.template_detail_title.config(text="🔄 正在加载模板...")
+        
+        # 创建loading界面
+        loading_frame = ttk.Frame(self.template_detail_form)
+        loading_frame.pack(expand=True, fill='both')
+        
+        # loading图标和文字
+        ttk.Label(loading_frame, text="⏳", font=("Arial", 48)).pack(pady=50)
+        ttk.Label(loading_frame, text="正在加载模板数据...", font=("Arial", 14)).pack(pady=10)
+        ttk.Label(loading_frame, text="请稍候", font=("Arial", 12), foreground="gray").pack()
+        
+        # 禁用左侧按钮
+        for widget in self.template_list.winfo_parent():
+            try:
+                if hasattr(widget, 'config') and 'state' in widget.config():
+                    widget.config(state='disabled')
+            except:
+                pass
+
+    def _load_templates_async(self):
+        """异步加载模板数据"""
+        try:
+            # 加载模板数据
+            self.load_templates()
+            
+            # 在主线程中更新UI
+            self.root.after(0, self._on_templates_loaded)
+        except Exception as e:
+            # 在主线程中显示错误
+            self.root.after(0, lambda: self._on_templates_load_error(str(e)))
+
+    def _on_templates_loaded(self):
+        """模板加载完成后的回调"""
+        # 刷新模板列表
+        self.refresh_template_list()
+        
+        # 清除loading状态
+        self.clear_template_details()
+        
+        # 显示加载完成的消息
+        self.template_detail_title.config(text="✅ 模板加载完成")
+        
+        # 在右侧面板显示加载完成信息
+        complete_frame = ttk.Frame(self.template_detail_form)
+        complete_frame.pack(expand=True, fill='both')
+        
+        ttk.Label(complete_frame, text="✅", font=("Arial", 48), foreground="green").pack(pady=50)
+        ttk.Label(complete_frame, text="模板数据加载完成", font=("Arial", 14), foreground="green").pack(pady=10)
+        ttk.Label(complete_frame, text=f"共加载 {len(self.templates)} 个模板", font=("Arial", 12)).pack()
+        
+        # 2秒后自动清除完成消息并显示当前模板详情
+        self.root.after(2000, self._show_current_template_after_loading)
+
+    def _on_templates_load_error(self, error_msg):
+        """模板加载失败后的回调"""
+        # 清除loading状态
+        self.clear_template_details()
+        
+        # 显示错误信息
+        self.template_detail_title.config(text="❌ 模板加载失败")
+        
+        # 在右侧面板显示错误信息
+        error_frame = ttk.Frame(self.template_detail_form)
+        error_frame.pack(expand=True, fill='both')
+        
+        ttk.Label(error_frame, text="❌", font=("Arial", 48), foreground="red").pack(pady=50)
+        ttk.Label(error_frame, text="模板数据加载失败", font=("Arial", 14), foreground="red").pack(pady=10)
+        ttk.Label(error_frame, text=error_msg, font=("Arial", 10), foreground="red", wraplength=400).pack(pady=5)
+        
+        # 添加重试按钮
+        retry_btn = ttk.Button(error_frame, text="🔄 重试", command=self._retry_load_templates)
+        retry_btn.pack(pady=10)
+
+    def _clear_loading_message(self):
+        """清除loading消息"""
+        self.clear_template_details()
+        self.template_detail_title.config(text="📝 模板详情")
+
+    def _show_current_template_after_loading(self):
+        """loading完成后显示当前模板详情"""
+        # 清除loading消息
+        self.clear_template_details()
+        
+        # 获取当前选中的模板
+        selected_items = self.template_list.selection()
+        if selected_items:
+            selected_item = selected_items[0]
+            template_key = self.template_list.item(selected_item, 'values')[0]
+            # 移除key中的⭐前缀（如果有的话）
+            if template_key.startswith('⭐ '):
+                template_key = template_key[2:]
+            
+            # 显示当前选中的模板详情
+            self.current_template_key = template_key
+            self.show_template_details(template_key)
+        else:
+            # 如果没有选中任何模板，显示默认状态
+            self.template_detail_title.config(text="📝 模板详情")
+
+    def _retry_load_templates(self):
+        """重试加载模板"""
+        self.show_template_loading()
+        import threading
+        threading.Thread(target=self._load_templates_async, daemon=True).start()
+
+    def refresh_templates(self):
+        """刷新模板数据"""
+        print("🔄 手动刷新模板数据...")
+        self.show_template_loading()
+        import threading
+        threading.Thread(target=self._load_templates_async, daemon=True).start()
+
+    def show_template_context_menu(self, event):
+        """显示模板列表的右键菜单"""
+        try:
+            # 选择右键点击的项目
+            item = self.template_list.identify_row(event.y)
+            if item:
+                self.template_list.selection_set(item)
+                # 检查是否有选中的模板
+                selected_key = self._get_selected_template_key()
+                if selected_key:
+                    # 获取模板信息以显示在菜单中
+                    template_info = self.templates.get(selected_key, {})
+                    template_name = template_info.get('name', selected_key)
+                    
+                    # 根据模板状态动态调整菜单项
+                    active_template = ((self.config.get('template') or {}).get('active') or 'default')
+                    
+                    # 更新菜单项标题显示当前模板名称
+                    self.template_context_menu.entryconfig(0, label=f"📝 编辑 '{template_name}'")
+                    self.template_context_menu.entryconfig(1, label=f"🗑️ 删除 '{template_name}'")
+                    self.template_context_menu.entryconfig(3, label=f"🧪 测试 '{template_name}'")
+                    
+                    # 更新"设为当前模板"菜单项状态
+                    if selected_key == active_template:
+                        self.template_context_menu.entryconfig(4, label="⭐ 当前激活模板", state="disabled")
+                    else:
+                        self.template_context_menu.entryconfig(4, label="⭐ 设为当前模板", state="normal")
+                    
+                    # 显示菜单
+                    self.template_context_menu.post(event.x_root, event.y_root)
+            else:
+                # 点击空白区域，取消选择
+                self.template_list.selection_remove(self.template_list.selection())
+        except Exception as e:
+            print(f"显示右键菜单失败: {e}")
+
+    def on_template_double_click(self, event):
+        """处理模板列表双击事件 - 直接编辑模板"""
+        try:
+            item = self.template_list.identify_row(event.y)
+            if item:
+                self.template_list.selection_set(item)
+                # 双击编辑模板
+                self.edit_selected_template()
+        except Exception as e:
+            print(f"双击编辑失败: {e}")
+
+    def refresh_template_list(self):
+        """刷新模板列表 - 只显示key和name"""
+        # 保存当前选中的模板key
+        current_selected_key = None
+        if hasattr(self, 'current_template_key') and self.current_template_key:
+            current_selected_key = self.current_template_key
+        else:
+            # 如果没有保存的key，尝试从当前选中项获取
+            selected_items = self.template_list.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                selected_values = self.template_list.item(selected_item, 'values')
+                if selected_values:
+                    current_selected_key = selected_values[0]
+                    # 移除key中的⭐前缀（如果有的话）
+                    if current_selected_key.startswith('⭐ '):
+                        current_selected_key = current_selected_key[2:]
+        
+        for item in self.template_list.get_children():
+            self.template_list.delete(item)
+        
+        for key, t in (self.templates or {}).items():
+            template_name = t.get('name', key)
+            # 检查是否为当前激活的模板
+            active_template = ((self.config.get('template') or {}).get('active') or 'default')
+            if key == active_template:
+                template_name = f"⭐ {template_name}"
+            
+            self.template_list.insert('', 'end', values=(key, template_name))
+        
+        # 恢复之前选中的模板，如果没有则选中当前激活的模板，最后才选中第一个
+        if self.template_list.get_children():
+            item_to_select = None
+            
+            # 尝试找到之前选中的模板
+            if current_selected_key:
+                for item in self.template_list.get_children():
+                    values = self.template_list.item(item, 'values')
+                    if values and values[0] == current_selected_key:
+                        item_to_select = item
+                        break
+            
+            # 如果没找到之前的选中项，尝试选择当前激活的模板
+            if not item_to_select:
+                active_template = ((self.config.get('template') or {}).get('active') or 'default')
+                for item in self.template_list.get_children():
+                    values = self.template_list.item(item, 'values')
+                    if values and values[0] == active_template:
+                        item_to_select = item
+                        break
+            
+            # 如果还是没找到，则选择第一个
+            if not item_to_select:
+                item_to_select = self.template_list.get_children()[0]
+            
+            self.template_list.selection_set(item_to_select)
+            self.template_list.focus(item_to_select)
+            # 触发选择事件
+            self.on_template_select(None)
+
+    def on_template_select(self, event):
+        """处理模板选择事件 - 更新右侧详情"""
+        try:
+            selected_items = self.template_list.selection()
+            if not selected_items:
+                self.clear_template_details()
+                return
+            
+            selected_item = selected_items[0]
+            template_key = self.template_list.item(selected_item, 'values')[0]
+            
+            # 移除key中的⭐前缀（如果有的话）
+            if template_key.startswith('⭐ '):
+                template_key = template_key[2:]
+            
+            self.current_template_key = template_key
+            self.show_template_details(template_key)
+            
+        except Exception as e:
+            print(f"选择模板失败: {e}")
+
+    def show_template_details(self, template_key):
+        """显示模板详情"""
+        if template_key not in (self.templates or {}):
+            self.clear_template_details()
+            return
+        
+        template_data = self.templates[template_key]
+        
+        # 更新标题
+        template_name = template_data.get('name', template_key)
+        self.template_detail_title.config(text=f"📝 {template_name} 详情")
+        
+        # 清除旧的表单
+        self.clear_template_details()
+        
+        # 创建新的表单
+        self.template_detail_entries = self._template_form(self.template_detail_form, template_data)
+
+    def clear_template_details(self):
+        """清除模板详情表单"""
+        # 清除所有子组件
+        for widget in self.template_detail_form.winfo_children():
+            widget.destroy()
+        
+        self.template_detail_entries = {}
+        self.template_detail_title.config(text="📝 模板详情")
+        self.current_template_key = None
+
+    def save_template_details(self):
+        """保存模板详情"""
+        # 如果没有当前模板key，尝试从模板列表获取选中的项
+        if not hasattr(self, 'current_template_key') or not self.current_template_key:
+            selected_items = self.template_list.selection()
+            if selected_items:
+                selected_item = selected_items[0]
+                template_key = self.template_list.item(selected_item, 'values')[0]
+                # 移除key中的⭐前缀（如果有的话）
+                if template_key.startswith('⭐ '):
+                    template_key = template_key[2:]
+                self.current_template_key = template_key
+        
+        if not self.current_template_key or self.current_template_key not in (self.templates or {}):
+            messagebox.showwarning("警告", "请先选择一个模板")
+            return
+        
+        try:
+            # 保存当前选中的模板key，以便刷新后恢复选中状态
+            saved_template_key = self.current_template_key
+            
+            # 收集表单数据
+            updated_data = {}
+            for key, widget in self.template_detail_entries.items():
+                if isinstance(widget, tk.BooleanVar):
+                    updated_data[key] = widget.get()
+                elif hasattr(widget, 'get'):  # Entry等输入控件
+                    updated_data[key] = str(widget.get())
+                else:
+                    updated_data[key] = str(widget)
+            
+            # 验证数据
+            validated_data = self.validate_template_data(updated_data)
+            
+            # 更新模板
+            self.templates[self.current_template_key] = validated_data
+            self.save_templates()
+            
+            # 刷新列表（会自动保持当前选中的模板）
+            self.refresh_template_list()
+            
+            # 确保右侧详情面板显示最新的数据
+            if hasattr(self, 'current_template_key') and self.current_template_key:
+                self.show_template_details(self.current_template_key)
+            
+            messagebox.showinfo("成功", "模板保存成功！")
+            
+        except Exception as e:
+            messagebox.showerror("错误", f"保存失败: {e}")
+
+    def _template_form(self, parent, data: dict) -> dict:
+        """创建模板详情表单 - 适配扁平化数据结构"""
+        entries = {}
         
         # 定义字段分组
         field_groups = [
             {
-                'title': '基本信息',
+                'title': '📝 基本信息',
                 'fields': [
-                    ('name', '模版名称')
+                    ('name', '模板名称', 'text')
                 ]
             },
             {
-                'title': '标题样式',
+                'title': '🎨 标题样式',
                 'fields': [
-                    ('title_color', '标题颜色'),
-                    ('title_highlight_color', '标题高亮色'),
-                    ('title_bg_enabled', '标题背景'),
-                    ('title_font', '标题字体'),
-                    ('title_font_size', '标题字号'),
-                    ('title_scale', '标题缩放'),
-                    ('title_line_spacing', '标题行间距')
+                    ('title_color', '标题颜色', 'color'),
+                    ('title_font', '标题字体', 'text'),
+                    ('title_font_size', '标题字号', 'number'),
+                    ('title_scale', '标题缩放', 'number'),
+                    ('title_shadow_enabled', '启用阴影', 'boolean'),
+                    ('title_bg_enabled', '启用背景', 'boolean'),
+                    ('title_line_spacing', '行间距', 'number'),
+                    ('title_line_count', '标题行数', 'number')
                 ]
             },
             {
-                'title': '字幕样式',
+                'title': '🎯 标题高亮样式',
                 'fields': [
-                    ('subtitle_color', '字幕颜色'),
-                    ('subtitle_highlight_color', '字幕高亮色'),
-                    ('subtitle_bg_enabled', '字幕背景'),
-                    ('subtitle_font', '字幕字体'),
-                    ('subtitle_font_size', '字幕字号'),
-                    ('subtitle_scale', '字幕缩放')
+                    ('title_highlight_color', '高亮颜色', 'color'),
+                    ('title_highlight_font', '高亮字体', 'text'),
+                    ('title_highlight_font_size', '高亮字号', 'number'),
+                    ('title_highlight_scale', '高亮缩放', 'number'),
+                    ('title_highlight_shadow_enabled', '高亮阴影', 'boolean')
                 ]
             },
             {
-                'title': '封面配置',
+                'title': '📄 副标题样式',
                 'fields': [
-                    ('cover_background', '封面底图'),
-                    ('cover_title_font', '封面标题字体'),
-                    ('cover_title_color', '封面标题颜色'),
-                    ('cover_title_size', '封面标题字号'),
-                    ('cover_subtitle_font', '封面下方标题字体'),
-                    ('cover_subtitle_color', '封面下方标题颜色'),
-                    ('cover_subtitle_size', '封面下方标题字号')
+                    ('subtitle_color', '副标题颜色', 'color'),
+                    ('subtitle_font', '副标题字体', 'text'),
+                    ('subtitle_font_size', '副标题字号', 'number'),
+                    ('subtitle_scale', '副标题缩放', 'number'),
+                    ('subtitle_shadow_enabled', '启用阴影', 'boolean'),
+                    ('subtitle_bg_enabled', '启用背景', 'boolean')
+                ]
+            },
+            {
+                'title': '🌟 副标题高亮样式',
+                'fields': [
+                    ('subtitle_highlight_color', '高亮颜色', 'color'),
+                    ('subtitle_highlight_font', '高亮字体', 'text'),
+                    ('subtitle_highlight_font_size', '高亮字号', 'number'),
+                    ('subtitle_highlight_scale', '高亮缩放', 'number'),
+                    ('subtitle_highlight_shadow_enabled', '高亮阴影', 'boolean')
+                ]
+            },
+            {
+                'title': '🔤 英文副标题样式',
+                'fields': [
+                    ('subtitle_english_enabled', '启用英文副标题', 'boolean'),
+                    ('subtitle_english_color', '英文颜色', 'color'),
+                    ('subtitle_english_font', '英文字体', 'text'),
+                    ('subtitle_english_font_size', '英文字号', 'number'),
+                    ('subtitle_english_scale', '英文缩放', 'number'),
+                    ('subtitle_english_shadow_enabled', '英文阴影', 'boolean'),
+                    ('subtitle_english_vertical_offset', '垂直偏移', 'number')
+                ]
+            },
+            {
+                'title': '🖼️ 封面样式',
+                'fields': [
+                    ('cover_background', '封面背景', 'file'),
+                    ('cover_title_font', '封面标题字体', 'text'),
+                    ('cover_title_color', '封面标题颜色', 'color'),
+                    ('cover_title_size', '封面标题字号', 'number'),
+                    ('cover_title_scale', '封面标题缩放', 'number'),
+                    ('cover_title_shadow_enabled', '封面标题阴影', 'boolean'),
+                    ('cover_subtitle_font', '封面副标题字体', 'text'),
+                    ('cover_subtitle_color', '封面副标题颜色', 'color'),
+                    ('cover_subtitle_size', '封面副标题字号', 'number'),
+                    ('cover_subtitle_scale', '封面副标题缩放', 'number'),
+                    ('cover_subtitle_highlight_color', '封面副标题高亮色', 'color')
                 ]
             }
         ]
         
-        row = 0
+        # 创建表单内容
         for group in field_groups:
-            # 添加分组标题
-            group_frame = ttk.LabelFrame(scrollable_frame, text=group['title'], padding=10)
-            group_frame.grid(row=row, column=0, columnspan=2, sticky='ew', padx=5, pady=5)
-            row += 1
+            # 创建分组标题
+            group_frame = ttk.LabelFrame(parent, text=group['title'], padding="10")
+            group_frame.pack(fill='x', padx=5, pady=5)
             
-            # 添加分组内的字段
-            for i, (key, label) in enumerate(group['fields']):
-                ttk.Label(group_frame, text=f"{label}:").grid(row=i, column=0, sticky='w', padx=5, pady=3)
+            # 创建字段网格
+            for i, (field_key, field_label, field_type) in enumerate(group['fields']):
+                row = i // 2  # 每行2个字段
+                col = (i % 2) * 2  # 每行间隔为2
                 
-                if key.endswith('_enabled'):
-                    var = tk.BooleanVar(value=bool(data.get(key, False)))
-                    cb = ttk.Checkbutton(group_frame, variable=var)
-                    cb.grid(row=i, column=1, sticky='w', padx=5, pady=3)
-                    entries[key] = var
-                elif key.endswith('_font'):
-                    # 所有字体字段都使用输入框，支持任意字体名称
-                    if key == 'title_font':
-                        default_value = '阳华体'
-                    elif key == 'subtitle_font':
-                        default_value = '俪金黑'
-                    elif key == 'cover_title_font':
-                        default_value = '阳华体'
-                    else:  # cover_subtitle_font
-                        default_value = '俪金黑'
+                # 字段标签
+                label = ttk.Label(group_frame, text=field_label, width=15, anchor='w')
+                label.grid(row=row, column=col, padx=(0, 5), pady=2, sticky='w')
+                
+                # 字段输入控件
+                if field_type == 'boolean':
+                    var = tk.BooleanVar()
+                    widget = ttk.Checkbutton(group_frame, variable=var)
+                    var.set(data.get(field_key, False))
+                    widget.grid(row=row, column=col+1, padx=(0, 20), pady=2, sticky='w')
+                    entries[field_key] = var  # 保存BooleanVar而不是widget
+                elif field_type == 'color':
+                    # 创建颜色选择器
+                    color_frame = ttk.Frame(group_frame)
+                    color_frame.grid(row=row, column=col+1, padx=(0, 20), pady=2, sticky='w')
                     
-                    e = ttk.Entry(group_frame, width=35)
-                    e.insert(0, str(data.get(key, default_value)))
-                    e.grid(row=i, column=1, sticky='ew', padx=5, pady=3)
-                    entries[key] = e
-                elif key == 'cover_background':
-                    # 封面底图文件选择
-                    frame = ttk.Frame(group_frame)
-                    frame.grid(row=i, column=1, sticky='ew', padx=5, pady=3)
+                    # 颜色显示框
+                    color_value = data.get(field_key, '#FFFFFF')
+                    # 确保颜色值不为空且有效
+                    if not color_value or color_value.strip() == '':
+                        color_value = '#FFFFFF'
                     
-                    e = ttk.Entry(frame, width=25)
-                    e.insert(0, str(data.get(key, '')))
-                    e.pack(side='left', fill='x', expand=True)
-                    entries[key] = e
+                    # 颜色显示框 - 正方形，高度与输入框一致
+                    color_display = tk.Label(color_frame, text='■', font=('Arial', 12), 
+                                           fg=color_value, bg='white', relief='sunken', 
+                                           width=3, height=1)
+                    color_display.pack(side='left', padx=(0, 5))
                     
-                    def browse_cover():
+                    # 颜色输入框
+                    color_entry = ttk.Entry(color_frame, width=10)
+                    color_entry.insert(0, color_value)
+                    color_entry.pack(side='left', padx=(0, 5))
+                    
+                    # 颜色更新函数
+                    def update_color_display(color):
+                        """更新颜色显示框"""
+                        try:
+                            color_display.config(fg=color)
+                            color_display.update()
+                            print(f"颜色显示已更新为: {color}")
+                        except Exception as e:
+                            print(f"更新颜色显示失败: {e}")
+                    
+                    # 输入框失焦事件处理
+                    def on_color_entry_focus_out(event):
+                        """输入框失焦时更新颜色显示"""
+                        try:
+                            new_color = color_entry.get().strip()
+                            if new_color and new_color.startswith('#'):
+                                update_color_display(new_color)
+                            else:
+                                # 如果不是有效的颜色格式，恢复原值
+                                color_entry.delete(0, tk.END)
+                                color_entry.insert(0, color_value)
+                                update_color_display(color_value)
+                        except Exception as e:
+                            print(f"处理颜色输入失败: {e}")
+                    
+                    # 绑定失焦事件
+                    color_entry.bind('<FocusOut>', on_color_entry_focus_out)
+                    
+                    # 颜色选择按钮
+                    def choose_color():
+                        from tkinter import colorchooser
+                        current_color = color_entry.get().strip()
+                        if not current_color or current_color == '':
+                            current_color = '#FFFFFF'
+                        try:
+                            color = colorchooser.askcolor(title="选择颜色", initialcolor=current_color)[1]
+                            if color:
+                                # 更新输入框
+                                color_entry.delete(0, tk.END)
+                                color_entry.insert(0, color)
+                                # 更新显示框
+                                update_color_display(color)
+                        except Exception as e:
+                            print(f"颜色选择失败: {e}")
+                            # 如果颜色选择失败，使用默认颜色
+                            color_entry.delete(0, tk.END)
+                            color_entry.insert(0, '#FFFFFF')
+                            update_color_display('#FFFFFF')
+                    
+                    ttk.Button(color_frame, text="选择", command=choose_color, width=8).pack(side='left')
+                    
+                    # 保存颜色输入框的引用
+                    entries[field_key] = color_entry
+                elif field_type == 'file':
+                    # 创建文件选择器
+                    file_frame = ttk.Frame(group_frame)
+                    file_frame.grid(row=row, column=col+1, padx=(0, 20), pady=2, sticky='w')
+
+                    # 文件路径输入框
+                    file_entry = ttk.Entry(file_frame, width=25)
+                    file_value = data.get(field_key, '')
+                    file_entry.insert(0, file_value)
+                    file_entry.pack(side='left', padx=(0, 5))
+
+                    # 文件选择按钮
+                    def choose_file():
                         from tkinter import filedialog
+                        filetypes = [
+                            ('图片文件', '*.jpg *.jpeg *.png *.bmp *.gif *.webp'),
+                            ('JPEG文件', '*.jpg *.jpeg'),
+                            ('PNG文件', '*.png'),
+                            ('所有文件', '*.*')
+                        ]
                         filename = filedialog.askopenfilename(
-                            title="选择封面底图",
-                            filetypes=[("图片文件", "*.jpg *.jpeg *.png *.bmp *.gif"), ("所有文件", "*.*")]
+                            title="选择封面背景图片",
+                            filetypes=filetypes
                         )
                         if filename:
-                            e.delete(0, tk.END)
-                            e.insert(0, filename)
-                    
-                    ttk.Button(frame, text="选择", command=browse_cover).pack(side='right', padx=(5, 0))
-                elif key.endswith('_size') or key.endswith('_scale'):
-                    # 数值输入框
-                    if key.endswith('_size'):
-                        default_value = '18'
-                    else:  # _scale
-                        default_value = '1.0'
-                    
-                    e = ttk.Entry(group_frame, width=35)
-                    e.insert(0, str(data.get(key, default_value)))
-                    e.grid(row=i, column=1, sticky='ew', padx=5, pady=3)
-                    entries[key] = e
-                else:
-                    # 普通文本输入框
-                    e = ttk.Entry(group_frame, width=35)
-                    e.insert(0, str(data.get(key, '')))
-                    e.grid(row=i, column=1, sticky='ew', padx=5, pady=3)
-                    entries[key] = e
-                
-                # 配置列权重
-                group_frame.columnconfigure(1, weight=1)
-        
-        # 配置滚动区域
-        canvas.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
-        parent.grid_rowconfigure(0, weight=1)
-        parent.grid_columnconfigure(0, weight=1)
+                            file_entry.delete(0, tk.END)
+                            file_entry.insert(0, filename)
+
+                    ttk.Button(file_frame, text="选择文件", command=choose_file, width=10).pack(side='left')
+
+                    # 保存文件输入框的引用
+                    entries[field_key] = file_entry
+                elif field_type == 'number':
+                    widget = ttk.Entry(group_frame, width=15)
+                    widget.insert(0, str(data.get(field_key, '')))
+                    widget.grid(row=row, column=col+1, padx=(0, 20), pady=2, sticky='w')
+                    entries[field_key] = widget
+                else:  # text
+                    widget = ttk.Entry(group_frame, width=15)
+                    widget.insert(0, str(data.get(field_key, '')))
+                    widget.grid(row=row, column=col+1, padx=(0, 20), pady=2, sticky='w')
+                    entries[field_key] = widget
         
         return entries
 
     def add_template_dialog(self):
         win = tk.Toplevel(self.root)
         win.title("新增模版")
-        win.geometry("800x600")  # 设置更大的窗口尺寸
+        win.geometry("1200x900")  # 设置更大的窗口尺寸 (800x600 * 1.5)
         
         # 主框架
         main_frame = ttk.Frame(win)
@@ -585,7 +1123,7 @@ class VideoGeneratorGUI:
         data = dict(self.templates.get(key) or {})
         win = tk.Toplevel(self.root)
         win.title(f"编辑模版 - {key}")
-        win.geometry("800x600")  # 设置更大的窗口尺寸
+        win.geometry("1200x900")  # 设置更大的窗口尺寸 (800x600 * 1.5)
         
         # 主框架
         main_frame = ttk.Frame(win)
@@ -634,7 +1172,8 @@ class VideoGeneratorGUI:
             self.refresh_template_list()
             win.destroy()
 
-        ttk.Button(button_frame, text="测试模版", command=lambda: self._test_template_from_dialog(win, form, key)).pack(side='left')
+        test_btn = ttk.Button(button_frame, text="测试模版", command=lambda: self._test_template_from_dialog(win, form, key, test_btn))
+        test_btn.pack(side='left')
         ttk.Button(button_frame, text="保存", command=on_save).pack(side='right', padx=(5, 0))
         ttk.Button(button_frame, text="取消", command=win.destroy).pack(side='right')
 
@@ -672,6 +1211,10 @@ class VideoGeneratorGUI:
     
     def test_selected_template(self):
         """测试选择的模板"""
+        # 检查是否正在测试中
+        if hasattr(self, '_testing_template') and self._testing_template:
+            return
+        
         key = self._get_selected_template_key()
         if not key:
             messagebox.showwarning("提示", "请先选择一个模版")
@@ -687,10 +1230,12 @@ class VideoGeneratorGUI:
             messagebox.showerror("错误", "请先在配置管理中设置剪映草稿文件夹路径")
             return
         
-        # 确认测试
+        # 设置loading状态
+        self._testing_template = True
+        self.test_template_btn.config(text="🔄 测试中...", state="disabled")
+        
+        # 直接开始测试（不再二次确认）
         template_name = template_data.get('name', key)
-        if not messagebox.askyesno("确认", f"确定要测试模版 '{template_name}' 吗？\n\n这将创建一个测试视频来验证模版效果。"):
-            return
         
         def run_test():
             try:
@@ -732,10 +1277,10 @@ class VideoGeneratorGUI:
                     'background_music_path': background_music_path,
                     'background_music_volume': 0.25,
                     
-                    # 封面配置（使用默认值或模板配置）
-                    'cover_short_title': validated_template.get('cover_config', {}).get('title_text', '测试标题'),
-                    'cover_image_path': validated_template.get('cover_config', {}).get('background', 'resource/查封面.jpg'),
-                    'cover_bottom_text': validated_template.get('cover_config', {}).get('subtitle_text', '测试副标题')
+                    # 封面配置（使用模板配置）
+                    'cover_short_title': '测试标题',
+                    'cover_image_path': validated_template.get('cover_background', 'resource/查封面.jpg'),
+                    'cover_bottom_text': '测试副标题'
                 }
                 
                 # 使用process_workflow方法（参考main函数）
@@ -743,7 +1288,7 @@ class VideoGeneratorGUI:
                 self.log_message(f"✅ 模版测试完成，草稿已保存到: {save_path}")
                 
                 # 显示结果
-                self.root.after(0, lambda: messagebox.showinfo(
+                self.root.after(0, lambda: self._on_test_completed(
                     "测试完成", 
                     f"模版测试完成！\n\n模版: {template_name}\n草稿路径: {save_path}\n\n请在剪映中打开草稿查看效果。"
                 ))
@@ -751,10 +1296,42 @@ class VideoGeneratorGUI:
             except Exception as e:
                 error_msg = f"模版测试失败: {e}"
                 self.log_message(error_msg)
-                self.root.after(0, lambda: messagebox.showerror("错误", error_msg))
+                self.root.after(0, lambda: self._on_test_failed("错误", error_msg))
         
         # 在后台线程中运行测试
         threading.Thread(target=run_test, daemon=True).start()
+    
+    def _on_test_completed(self, title, message):
+        """测试完成回调"""
+        # 恢复按钮状态
+        self._testing_template = False
+        self.test_template_btn.config(text="🧪 测试", state="normal")
+        # 显示完成消息
+        messagebox.showinfo(title, message)
+    
+    def _on_test_failed(self, title, message):
+        """测试失败回调"""
+        # 恢复按钮状态
+        self._testing_template = False
+        self.test_template_btn.config(text="🧪 测试", state="normal")
+        # 显示错误消息
+        messagebox.showerror(title, message)
+    
+    def _on_dialog_test_completed(self, test_btn, title, message):
+        """对话框测试完成回调"""
+        # 恢复按钮状态
+        self._testing_dialog_template = False
+        test_btn.config(text="测试模版", state="normal")
+        # 显示完成消息
+        messagebox.showinfo(title, message)
+    
+    def _on_dialog_test_failed(self, test_btn, title, message):
+        """对话框测试失败回调"""
+        # 恢复按钮状态
+        self._testing_dialog_template = False
+        test_btn.config(text="测试模版", state="normal")
+        # 显示错误消息
+        messagebox.showerror(title, message)
     
     def _prepare_template_test_data(self):
         """准备模板测试数据"""
@@ -782,13 +1359,21 @@ class VideoGeneratorGUI:
         # 随机选择一个测试场景
         return random.choice(test_scenarios)
     
-    def _test_template_from_dialog(self, dialog_window, form, template_key):
+    def _test_template_from_dialog(self, dialog_window, form, template_key, test_btn):
         """从编辑对话框测试模板"""
+        # 检查是否正在测试中
+        if hasattr(self, '_testing_dialog_template') and self._testing_dialog_template:
+            return
+            
         try:
             # 验证剪映路径
             if not self.jianying_path_entry.get():
                 messagebox.showerror("错误", "请先在配置管理中设置剪映草稿文件夹路径")
                 return
+            
+            # 设置loading状态
+            self._testing_dialog_template = True
+            test_btn.config(text="🔄 测试中...", state="disabled")
             
             # 从表单获取当前模板数据
             template_data = {}
@@ -801,10 +1386,8 @@ class VideoGeneratorGUI:
                     template_data[k] = str(widget.get())
             template_data['name'] = template_data.get('name') or template_key
             
-            # 确认测试
+            # 直接开始测试（不再二次确认）
             template_name = template_data.get('name', template_key)
-            if not messagebox.askyesno("确认", f"确定要测试模版 '{template_name}' 吗？\n\n这将创建一个测试视频来验证模版效果。"):
-                return
             
             def run_test():
                 try:
@@ -846,10 +1429,10 @@ class VideoGeneratorGUI:
                         'background_music_path': background_music_path,
                         'background_music_volume': 0.25,
                         
-                        # 封面配置（使用默认值或模板配置）
-                        'cover_short_title': validated_template.get('cover_config', {}).get('title_text', '测试标题'),
-                        'cover_image_path': validated_template.get('cover_config', {}).get('background', 'resource/查封面.jpg'),
-                        'cover_bottom_text': validated_template.get('cover_config', {}).get('subtitle_text', '测试副标题')
+                        # 封面配置（使用模板配置）
+                        'cover_short_title': '测试标题',
+                        'cover_image_path': validated_template.get('cover_background', 'resource/查封面.jpg'),
+                        'cover_bottom_text': '测试副标题'
                     }
                     
                     # 使用process_workflow方法（参考main函数）
@@ -857,20 +1440,23 @@ class VideoGeneratorGUI:
                     self.log_message(f"✅ 模版测试完成，草稿已保存到: {save_path}")
                     
                     # 显示结果
-                    self.root.after(0, lambda: messagebox.showinfo(
-                        "测试完成", 
+                    self.root.after(0, lambda: self._on_dialog_test_completed(
+                        test_btn, "测试完成", 
                         f"模版测试完成！\n\n模版: {template_name}\n草稿路径: {save_path}\n\n请在剪映中打开草稿查看效果。"
                     ))
                     
                 except Exception as e:
                     error_msg = f"模版测试失败: {e}"
                     self.log_message(error_msg)
-                    self.root.after(0, lambda: messagebox.showerror("错误", error_msg))
+                    self.root.after(0, lambda: self._on_dialog_test_failed(test_btn, "错误", error_msg))
             
             # 在后台线程中运行测试
             threading.Thread(target=run_test, daemon=True).start()
             
         except Exception as e:
+            # 恢复按钮状态
+            self._testing_dialog_template = False
+            test_btn.config(text="测试模版", state="normal")
             messagebox.showerror("错误", f"测试模版失败: {e}")
     
     def create_config_tab(self):
@@ -1544,26 +2130,48 @@ class VideoGeneratorGUI:
                 self.templates = {
                     'default': {
                         'name': '默认模版',
-                        'title_color': '#FFFFFF',
-                        'title_highlight_color': '#FFD700',
-                        'title_bg_enabled': True,
+                        'title_color': '#777777',
                         'title_font': '阳华体',
-                        'title_font_size': '24',
+                        'title_font_size': '18.0',
                         'title_scale': '1.0',
+                        'title_shadow_enabled': False,
+                        'title_highlight_color': '#FF0000',
+                        'title_highlight_font': '阳华体',
+                        'title_highlight_font_size': '18.0',
+                        'title_highlight_scale': '1.0',
+                        'title_highlight_shadow_enabled': False,
+                        'title_bg_enabled': False,
                         'title_line_spacing': '1.0',
+                        'title_line_count': '3',
                         'subtitle_color': '#FFFFFF',
-                        'subtitle_highlight_color': '#00FFFF',
-                        'subtitle_bg_enabled': True,
                         'subtitle_font': '俪金黑',
-                        'subtitle_font_size': '18',
+                        'subtitle_font_size': '18.0',
                         'subtitle_scale': '1.0',
+                        'subtitle_shadow_enabled': False,
+                        'subtitle_highlight_color': '#00FFFF',
+                        'subtitle_highlight_font': '俪金黑',
+                        'subtitle_highlight_font_size': '18.0',
+                        'subtitle_highlight_scale': '1.0',
+                        'subtitle_highlight_shadow_enabled': False,
+                        'subtitle_bg_enabled': True,
+                        'subtitle_english_enabled': False,
+                        'subtitle_english_color': '#CCCCCC',
+                        'subtitle_english_font': 'Arial',
+                        'subtitle_english_font_size': '16',
+                        'subtitle_english_scale': '0.9',
+                        'subtitle_english_shadow_enabled': False,
+                        'subtitle_english_vertical_offset': '0.1',
                         'cover_background': '',
                         'cover_title_font': '阳华体',
                         'cover_title_color': '#FFFFFF',
                         'cover_title_size': '24',
+                        'cover_title_scale': '1.0',
+                        'cover_title_shadow_enabled': False,
                         'cover_subtitle_font': '俪金黑',
                         'cover_subtitle_color': '#FFFFFF',
-                        'cover_subtitle_size': '18'
+                        'cover_subtitle_size': '18',
+                        'cover_subtitle_scale': '1.0',
+                        'cover_subtitle_highlight_color': '#FFEF2C'
                     }
                 }
                 self.save_templates()
@@ -3010,7 +3618,7 @@ class VideoGeneratorGUI:
 
         win = tk.Toplevel(self.root)
         win.title(f"任务实时日志 - {title}")
-        win.geometry("900x520")
+        win.geometry("1350x780")  # 放大1.5倍 (900x520 * 1.5)
 
         # 顶部操作栏
         toolbar = ttk.Frame(win)

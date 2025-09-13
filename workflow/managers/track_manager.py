@@ -28,6 +28,7 @@ class TrackManager(BaseProcessor):
         # 文本类：按调用顺序设置层级
         self.context.script.add_track(TrackType.text, "内容字幕轨道", relative_index=5)
         self.context.script.add_track(TrackType.text, "标题字幕轨道", relative_index=6)
+        self.context.script.add_track(TrackType.text, "English Subtitles Track", relative_index=7)
         
         self._log("info", "基础轨道创建完成")
         
