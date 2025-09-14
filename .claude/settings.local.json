@@ -60,7 +60,14 @@
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\core/**)",
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
       "Read(/D:\\code\\pyJianYingDraft\\workflow\\component/**)",
-      "Read(/D:\\code\\pyJianYingDraft\\workflow/**)"
+      "Read(/D:\\code\\pyJianYingDraft\\workflow/**)",
+      "Bash(mv:*)",
+      "Bash(grep:*)",
+      "Bash(find:*)",
+      "Bash(rm:*)",
+      "Bash(tree:*)",
+      "Read(//e/code/**)",
+      "Bash(timeout:*)"
     ],
     "deny": [],
     "ask": []
