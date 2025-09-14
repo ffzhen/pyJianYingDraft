@@ -32,6 +32,7 @@ class FeishuBatchWorkflow:
         self.batch_processor = BatchCozeWorkflow(draft_folder_path, max_workers)
         self.feishu_config = None
         self.field_mapping = None
+        self.template_config = None
         
     def set_feishu_config(self, app_id: str, app_secret: str, 
                          app_token: str, table_id: str):
@@ -69,6 +70,9 @@ class FeishuBatchWorkflow:
         
         # 设置字段映射
         self.field_mapping = tables.get("content_table", {}).get("field_mapping", {})
+        
+        # 设置模板配置
+        self.template_config = config.get("template_config", {})
         
         # 设置关联表配置
         account_table = tables.get("account_table", {})
@@ -222,6 +226,10 @@ class FeishuBatchWorkflow:
         
         # 设置飞书任务源以启用状态更新
         self.batch_processor.set_feishu_task_source(task_source)
+        
+        # 设置模板配置
+        if self.template_config:
+            self.batch_processor.set_template_config(self.template_config)
         
         # 执行批量处理
         print(f"\n[INFO] 开始批量处理...")

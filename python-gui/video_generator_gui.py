@@ -483,6 +483,7 @@ class VideoGeneratorGUI:
         # 创建右键菜单
         self.template_context_menu = tk.Menu(self.root, tearoff=0)
         self.template_context_menu.add_command(label="📝 编辑模板", command=self.edit_selected_template)
+        self.template_context_menu.add_command(label="📋 复制模板", command=self.copy_selected_template)
         self.template_context_menu.add_command(label="🗑️ 删除模板", command=self.delete_selected_template)
         self.template_context_menu.add_separator()
         self.template_context_menu.add_command(label="🧪 测试模板", command=self.test_selected_template)
@@ -632,14 +633,15 @@ class VideoGeneratorGUI:
                     
                     # 更新菜单项标题显示当前模板名称
                     self.template_context_menu.entryconfig(0, label=f"📝 编辑 '{template_name}'")
-                    self.template_context_menu.entryconfig(1, label=f"🗑️ 删除 '{template_name}'")
-                    self.template_context_menu.entryconfig(3, label=f"🧪 测试 '{template_name}'")
+                    self.template_context_menu.entryconfig(1, label=f"📋 复制 '{template_name}'")
+                    self.template_context_menu.entryconfig(2, label=f"🗑️ 删除 '{template_name}'")
+                    self.template_context_menu.entryconfig(4, label=f"🧪 测试 '{template_name}'")
                     
                     # 更新"设为当前模板"菜单项状态
                     if selected_key == active_template:
-                        self.template_context_menu.entryconfig(4, label="⭐ 当前激活模板", state="disabled")
+                        self.template_context_menu.entryconfig(5, label="⭐ 当前激活模板", state="disabled")
                     else:
-                        self.template_context_menu.entryconfig(4, label="⭐ 设为当前模板", state="normal")
+                        self.template_context_menu.entryconfig(5, label="⭐ 设为当前模板", state="normal")
                     
                     # 显示菜单
                     self.template_context_menu.post(event.x_root, event.y_root)
@@ -1190,6 +1192,50 @@ class VideoGeneratorGUI:
                 self.refresh_template_list()
             except Exception as e:
                 messagebox.showerror("错误", f"删除失败: {e}")
+
+    def copy_selected_template(self):
+        """复制选中的模板"""
+        key = self._get_selected_template_key()
+        if not key:
+            messagebox.showwarning("提示", "请先选择一个模版")
+            return
+        
+        try:
+            # 获取原模板数据
+            original_template = self.templates.get(key, {})
+            if not original_template:
+                messagebox.showerror("错误", "模板数据不存在")
+                return
+            
+            # 生成新的模板ID（基于时间戳）
+            import time
+            new_key = f"tpl_{int(time.time())}"
+            
+            # 复制模板数据
+            new_template = original_template.copy()
+            new_template['name'] = f"{original_template.get('name', key)}_副本"
+            
+            # 检查新ID是否已存在
+            counter = 1
+            while new_key in self.templates:
+                new_key = f"tpl_{int(time.time())}_{counter}"
+                counter += 1
+            
+            # 添加新模板
+            self.templates[new_key] = new_template
+            self.save_templates()
+            self.refresh_template_list()
+            
+            # 自动选中新复制的模板
+            self.current_template_key = new_key
+            self.refresh_template_list()
+            
+            self.log_message(f"模板复制成功: {key} -> {new_key}")
+            messagebox.showinfo("成功", f"模板复制成功！\n新模板ID: {new_key}\n新模板名称: {new_template['name']}")
+            
+        except Exception as e:
+            self.log_message(f"模板复制失败: {e}")
+            messagebox.showerror("错误", f"复制失败: {e}")
 
     def set_active_template(self):
         key = self._get_selected_template_key()
@@ -1830,9 +1876,11 @@ class VideoGeneratorGUI:
         self.schedule_name_entry = ttk.Entry(create_frame, width=40)
         self.schedule_name_entry.grid(row=0, column=1, padx=5, pady=5)
         
+        # 工作流选择（简化版）
         ttk.Label(create_frame, text="工作流:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.schedule_workflow_combo = ttk.Combobox(create_frame, width=38)
+        self.schedule_workflow_combo = ttk.Combobox(create_frame, values=['飞书异步批量工作流'], width=38, state='readonly')
         self.schedule_workflow_combo.grid(row=1, column=1, padx=5, pady=5)
+        self.schedule_workflow_combo.set('飞书异步批量工作流')  # 设置默认值
         
         ttk.Label(create_frame, text="执行时间:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
         self.schedule_time_entry = ttk.Entry(create_frame, width=40)
@@ -1843,14 +1891,14 @@ class VideoGeneratorGUI:
         self.schedule_repeat_combo = ttk.Combobox(create_frame, values=['每天', '每周', '每月'], width=38)
         self.schedule_repeat_combo.grid(row=3, column=1, padx=5, pady=5)
         
-        # 模板选择（仅对飞书异步批量工作流显示）
+        # 模板选择（始终显示）
         ttk.Label(create_frame, text="模板选择:").grid(row=4, column=0, sticky='w', padx=5, pady=5)
         self.schedule_template_var = tk.StringVar()
         self.schedule_template_combo = ttk.Combobox(create_frame, textvariable=self.schedule_template_var, width=38, state='readonly')
         self.schedule_template_combo.grid(row=4, column=1, padx=5, pady=5)
         
-        # 绑定工作流选择变化事件
-        self.schedule_workflow_combo.bind('<<ComboboxSelected>>', self.on_schedule_workflow_changed)
+        # 初始化模板列表
+        self.refresh_schedule_template_list()
         
         ttk.Button(create_frame, text="创建任务", command=self.create_schedule).grid(row=5, column=1, pady=10)
         
@@ -1858,8 +1906,13 @@ class VideoGeneratorGUI:
         list_frame = ttk.LabelFrame(schedule_frame, text="定时任务列表")
         list_frame.pack(fill='both', expand=True, padx=20, pady=10)
         
-        columns = ('名称', '工作流类型', '工作流', '执行时间', '重复周期', '状态', '下次执行')
-        self.schedule_tree = ttk.Treeview(list_frame, columns=columns, show='headings', height=10)
+        # 创建定时任务列表样式
+        style = ttk.Style()
+        style.configure("ScheduleList.Treeview", rowheight=35)
+        
+        columns = ('名称', '工作流', '执行时间', '重复周期', '状态', '下次执行')
+        self.schedule_tree = ttk.Treeview(list_frame, columns=columns, show='headings', 
+                                        height=10, style="ScheduleList.Treeview")
         
         for col in columns:
             self.schedule_tree.heading(col, text=col)
@@ -1875,24 +1928,6 @@ class VideoGeneratorGUI:
         ttk.Button(button_frame, text="启用/禁用", command=self.toggle_schedule).pack(side='left', padx=5)
         ttk.Button(button_frame, text="删除任务", command=self.delete_schedule).pack(side='left', padx=5)
     
-    def on_schedule_workflow_changed(self, event=None):
-        """定时任务工作流选择变化事件"""
-        try:
-            selected_workflow = self.schedule_workflow_combo.get()
-            
-            # 清空模板选择
-            self.schedule_template_var.set('')
-            self.schedule_template_combo['values'] = []
-            
-            # 如果是飞书异步批量工作流，显示模板选择
-            if '飞书异步批量' in selected_workflow or 'feishu_async' in selected_workflow.lower():
-                self.refresh_schedule_template_list()
-                self.schedule_template_combo.grid()  # 显示模板选择框
-            else:
-                self.schedule_template_combo.grid_remove()  # 隐藏模板选择框
-                
-        except Exception as e:
-            self.log_message(f"工作流选择变化处理失败: {e}")
     
     def refresh_schedule_template_list(self):
         """刷新定时任务模板选择列表"""
@@ -2525,16 +2560,15 @@ class VideoGeneratorGUI:
             except ValueError:
                 raise ValueError("时间格式错误，请使用HH:MM格式")
             
-            # 获取模板配置（仅对飞书异步批量工作流）
+            # 获取模板配置
             template_config = None
-            if '飞书异步批量' in workflow_id or 'feishu_async' in workflow_id.lower():
-                selected_template = self.schedule_template_var.get()
-                if selected_template:
-                    template_key = selected_template.split(' - ')[0]
-                    template_data = self.templates.get(template_key, {})
-                    if template_data:
-                        template_config = self.validate_template_data(template_data)
-                        self.log_message(f"定时任务使用模板: {template_data.get('name', template_key)}")
+            selected_template = self.schedule_template_var.get()
+            if selected_template:
+                template_key = selected_template.split(' - ')[0]
+                template_data = self.templates.get(template_key, {})
+                if template_data:
+                    template_config = self.validate_template_data(template_data)
+                    self.log_message(f"定时任务使用模板: {template_data.get('name', template_key)}")
             
             # 创建定时任务
             schedule_id = str(uuid.uuid4())
@@ -2569,16 +2603,11 @@ class VideoGeneratorGUI:
         for item in self.schedule_tree.get_children():
             self.schedule_tree.delete(item)
         
-        # 更新工作流下拉框
-        workflow_names = [wf.get('name', '') for wf in self.workflows.values()]
-        self.schedule_workflow_combo['values'] = workflow_names
-        
         # 添加定时任务
         for schedule_id, schedule in self.schedules.items():
             next_run = self.calculate_next_run(schedule['time'], schedule['repeat'])
             self.schedule_tree.insert('', 'end', values=(
                 schedule.get('name', ''),
-                '',
                 schedule.get('workflow_id', ''),
                 schedule.get('time', ''),
                 schedule.get('repeat', ''),
@@ -2664,23 +2693,42 @@ class VideoGeneratorGUI:
                     now = datetime.now()
                     current_time = now.strftime('%H:%M')
                     
+                    # 每5分钟输出一次调试信息
+                    if now.minute % 5 == 0:
+                        self.log_message(f"调度器运行中，当前时间: {current_time}")
+                    
                     for schedule_id, schedule in self.schedules.items():
-                        if schedule.get('enabled', False) and schedule.get('time') == current_time:
-                            # 检查是否已经运行过
-                            last_run = schedule.get('last_run')
-                            should_run = True
-                            
-                            if last_run:
-                                last_run_time = datetime.fromisoformat(last_run)
-                                if schedule.get('repeat') == '每天':
-                                    should_run = (now - last_run_time).days >= 1
-                                elif schedule.get('repeat') == '每周':
-                                    should_run = (now - last_run_time).days >= 7
-                                elif schedule.get('repeat') == '每月':
-                                    should_run = (now - last_run_time).days >= 30
-                            
-                            if should_run:
-                                self.run_scheduled_task(schedule_id)
+                        if schedule.get('enabled', False):
+                            schedule_time = schedule.get('time')
+                            if schedule_time == current_time:
+                                self.log_message(f"发现匹配的定时任务: {schedule.get('name')} ({schedule_time})")
+                                
+                                # 检查是否已经运行过
+                                last_run = schedule.get('last_run')
+                                should_run = True
+                                
+                                if last_run:
+                                    try:
+                                        last_run_time = datetime.fromisoformat(last_run)
+                                        if schedule.get('repeat') == '每天':
+                                            should_run = (now - last_run_time).days >= 1
+                                        elif schedule.get('repeat') == '每周':
+                                            should_run = (now - last_run_time).days >= 7
+                                        elif schedule.get('repeat') == '每月':
+                                            should_run = (now - last_run_time).days >= 30
+                                        
+                                        self.log_message(f"重复检查: {schedule.get('repeat')}, 距离上次运行: {(now - last_run_time).days} 天, 应该运行: {should_run}")
+                                    except Exception as e:
+                                        self.log_message(f"解析最后运行时间失败: {e}")
+                                        should_run = True
+                                else:
+                                    self.log_message(f"任务从未运行过，应该执行")
+                                
+                                if should_run:
+                                    self.log_message(f"开始执行定时任务: {schedule.get('name')}")
+                                    self.run_scheduled_task(schedule_id)
+                                else:
+                                    self.log_message(f"跳过执行定时任务: {schedule.get('name')} (重复检查未通过)")
                     
                     time.sleep(60)  # 每分钟检查一次
                 
@@ -2815,29 +2863,10 @@ class VideoGeneratorGUI:
                 return
             
             workflow_name = schedule.get('workflow_id')
+            self.log_message(f"开始执行定时任务: {schedule.get('name')} (工作流: {workflow_name})")
             
-            # 查找工作流
-            workflow = None
-            for wf in self.workflows.values():
-                if wf.get('name') == workflow_name:
-                    workflow = wf
-                    break
-            
-            if not workflow:
-                self.log_message(f"未找到工作流: {workflow_name}")
-                return
-            
-            self.log_message(f"开始执行定时任务: {schedule.get('name')}")
-            
-            # 根据工作流对象的类型执行
-            workflow_type = (workflow or {}).get('type', '')
-            if workflow_type == 'manual':
-                result = self.generate_video_from_content(
-                    workflow.get('content', ''),
-                    workflow.get('digital_no'),
-                    workflow.get('voice_id')
-                )
-            elif workflow_type == 'feishu_async_batch':
+            # 直接根据工作流名称执行，不需要查找workflows.json
+            if workflow_name == "飞书异步批量工作流" or "飞书" in workflow_name:
                 # 执行飞书异步批量工作流
                 self.log_message(f"开始执行飞书视频批量生成定时任务: {schedule.get('name')}")
                 
@@ -2859,6 +2888,7 @@ class VideoGeneratorGUI:
                 async_workflow = FeishuAsyncBatchWorkflow(config)
                 
                 # 执行异步批量处理
+                self.log_message(f"开始执行飞书异步批量处理...")
                 result = async_workflow.process_async_batch(
                     filter_condition=self.build_filter_condition(),
                     include_ids=None,
@@ -2866,25 +2896,60 @@ class VideoGeneratorGUI:
                     save_results=True
                 )
                 
+                # 详细记录执行结果
                 if result.get('success'):
                     success_rate = result.get('success_rate', 0)
                     total_tasks = result.get('total_tasks', 0)
                     finished_tasks = result.get('finished_tasks', 0)
-                    self.log_message(f"飞书异步批量定时任务完成！成功率: {success_rate:.1f}% ({finished_tasks}/{total_tasks})")
+                    failed_tasks = result.get('failed_tasks', 0)
+                    execution_time = result.get('execution_time', 0)
+                    
+                    self.log_message(f"✅ 飞书异步批量定时任务执行成功！")
+                    self.log_message(f"📊 执行统计:")
+                    self.log_message(f"   - 总任务数: {total_tasks}")
+                    self.log_message(f"   - 完成任务数: {finished_tasks}")
+                    self.log_message(f"   - 失败任务数: {failed_tasks}")
+                    self.log_message(f"   - 成功率: {success_rate:.1f}%")
+                    self.log_message(f"   - 执行时间: {execution_time:.1f}秒")
+                    
+                    # 记录任务详情
+                    if 'task_details' in result:
+                        task_details = result['task_details']
+                        self.log_message(f"📋 任务详情:")
+                        for task_id, task_info in task_details.items():
+                            status = task_info.get('status', 'unknown')
+                            title = task_info.get('title', 'N/A')[:20]  # 截断标题
+                            self.log_message(f"   - {task_id[:8]}... {title}: {status}")
                 else:
-                    self.log_message(f"飞书异步批量定时任务失败: {result.get('message', '未知错误')}")
+                    error_message = result.get('message', '未知错误')
+                    self.log_message(f"❌ 飞书异步批量定时任务执行失败!")
+                    self.log_message(f"💥 错误信息: {error_message}")
+                    
+                    # 记录失败详情
+                    if 'error_details' in result:
+                        error_details = result['error_details']
+                        self.log_message(f"🔍 错误详情: {error_details}")
             else:
-                self.log_message(f"不支持的工作流类型: {workflow_type}")
+                self.log_message(f"❌ 不支持的工作流: {workflow_name}")
                 return
             
             # 更新最后运行时间
             schedule['last_run'] = datetime.now().isoformat()
             self.save_schedules()
             
-            self.log_message(f"定时任务执行完成: {schedule.get('name')}")
+            # 记录任务完成状态
+            task_status = "成功" if result.get('success', False) else "失败"
+            self.log_message(f"🏁 定时任务 '{schedule.get('name')}' 执行{task_status}")
             
         except Exception as e:
-            self.log_message(f"定时任务执行失败: {e}")
+            self.log_message(f"💥 定时任务执行异常: {schedule.get('name')}")
+            self.log_message(f"🔍 异常详情: {str(e)}")
+            self.log_message(f"📝 异常类型: {type(e).__name__}")
+            
+            # 记录异常堆栈信息
+            import traceback
+            stack_trace = traceback.format_exc()
+            self.log_message(f"📚 堆栈信息: {stack_trace}")
     
     def log_message(self, message: str):
         """记录日志消息"""
@@ -3889,20 +3954,6 @@ class VideoGeneratorGUI:
         self.poll_interval_entry.delete(0, tk.END)
         self.poll_interval_entry.insert(0, "30")
     
-    def on_workflow_type_changed(self, event):
-        """工作流类型改变事件处理"""
-        workflow_type = self.schedule_workflow_type_combo.get()
-        
-        if workflow_type == '手动生成':
-            # 显示手动生成的工作流
-            workflow_names = [wf.get('name', '') for wf in self.workflows.values() if wf.get('type') == 'manual']
-            self.schedule_workflow_combo['values'] = workflow_names
-        elif workflow_type == '飞书异步批量':
-            # 显示飞书异步批量工作流（使用固定名称）
-            self.schedule_workflow_combo['values'] = ['飞书异步批量工作流']
-            self.schedule_workflow_combo.set('飞书异步批量工作流')
-        else:
-            self.schedule_workflow_combo['values'] = []
 
 
 class FeishuClient:

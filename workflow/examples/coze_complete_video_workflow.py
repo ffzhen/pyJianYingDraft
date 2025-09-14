@@ -330,6 +330,7 @@ class CozeVideoWorkflow:
                 'digital_video_url': actual_data.get('videoUrl', ''),  # 修正参数名映射
                 'recordId': actual_data.get('recordId', ''),
                 'tableId': actual_data.get('tableId', ''),
+                'account_id': actual_data.get('account_id', ''),  # 添加账号ID用于动态封面
                 
                 # 火山引擎ASR配置
                 'volcengine_appid': '6046310832',
@@ -345,7 +346,7 @@ class CozeVideoWorkflow:
                 'background_music_volume': self.background_music_volume,
 
                 'cover_short_title':actual_data.get('shortTitle', ''),
-                'cover_image_path': 'resource/查封面.jpg',
+                # 不设置cover_image_path，让process_workflow使用模板配置中的cover_background
                 'cover_bottom_text':actual_data.get('wrapTitle', ''),
             }
             
@@ -361,7 +362,7 @@ class CozeVideoWorkflow:
             log_with_time(f"❌ 视频合成失败: {e}", self.start_time)
             return None
     
-    def run_complete_workflow(self, content: str, digital_no: str, voice_id: str, title: str = None) -> Optional[str]:
+    def run_complete_workflow(self, content: str, digital_no: str, voice_id: str, title: str = None, account_id: str = None) -> Optional[str]:
         """运行完整工作流
         
         Args:
@@ -369,6 +370,7 @@ class CozeVideoWorkflow:
             digital_no: 数字编号
             voice_id: 语音ID
             title: 视频标题（可选，如果不提供将使用默认标题）
+            account_id: 账号ID（用于动态封面选择）
             
         Returns:
             最终视频保存路径或None
@@ -381,7 +383,8 @@ class CozeVideoWorkflow:
             "content": content,
             "digital_no": digital_no,
             "voice_id": voice_id,
-            "title": title or "AI视频生成"
+            "title": title or "AI视频生成",
+            "account_id": account_id
         }
         
         # 1. 调用Coze工作流

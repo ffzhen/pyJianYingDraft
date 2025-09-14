@@ -213,7 +213,8 @@ class FeishuVideoTaskSource:
             "digital_no": "数字人编号",
             "voice_id": "声音ID",
             "project_name": "项目名称",
-            "account": "关联账号"
+            "account": "关联账号",
+            "template": "模板名称"
         }
         
         # 关联表配置
@@ -613,6 +614,7 @@ class FeishuVideoTaskSource:
                 "voice_id": voice_id or self.extract_text_from_rich_text(fields.get(self.field_mapping.get("voice_id", "声音ID"), "")),
                 "project_name": project_name,
                 "account_id": account_id,
+                "template": self.extract_text_from_rich_text(fields.get(self.field_mapping.get("template", "模板名称"), "default")),
                 "feishu_record_id": record.get("record_id"),
                 "feishu_data": record  # 保存原始飞书数据
             }

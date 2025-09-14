@@ -1,0 +1,33 @@
+{
+  "tasks": {
+    "task_1": {
+      "task_id": "task_1",
+      "content": "房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。",
+      "digital_no": "D20250820190000005",
+      "voice_id": "AA20250822120001",
+      "title": "这个环境，都是一把辛酸泪呀",
+      "project_name": "查_这个环境，都是一把辛酸泪呀_20250913_215025",
+      "record_id": "recuVQQtgd0VxD",
+      "status": "finished",
+      "execute_id": "7549570773708668966",
+      "submit_time": "2025-09-13T21:50:25.756138",
+      "complete_time": "2025-09-13T21:53:26.471139",
+      "coze_result": {
+        "node_status": "{}",
+        "Output": "{\"audioUrl\":\"https://oss.oemi.jdword.com/prod/temp/srt/V20250913214619001.wav\",\"content\":\"房东卖房的三个理由，一，出国了，二，孩子考上清北了，三，不在本地发展了。其实卖房三个心酸的理由是因为一，离婚了，二，破产了，三，房贷还不上了。\",\"recordId\":\"\",\"shortTitle\":\"卖房心酸\",\"tableId\":\"\",\"title\":\"房东卖房背后隐藏多少心酸真相\",\"videoUrl\":\"https://oss.oemi.jdword.com/prod/order/video/202509/V20250913215306001.mp4\",\"wrapTitle\":\"房东卖房背后/n       隐藏多少心酸真相\"}"
+      },
+      "video_path": "D:/jianying/JianyingPro Drafts\\查_这个环境，都是一把辛酸泪呀_20250913_215025_20250913_215326\\draft_content.json",
+      "error_message": null,
+      "retry_count": 0,
+      "max_retries": 3
+    }
+  },
+  "statistics": {
+    "total_tasks": 1,
+    "submitted_tasks": 1,
+    "completed_tasks": 1,
+    "failed_tasks": 0,
+    "start_time": "2025-09-13T21:50:25.603853",
+    "end_time": "2025-09-13T21:53:56.472943"
+  }
+}

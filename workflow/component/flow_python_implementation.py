@@ -177,6 +177,48 @@ class VideoEditingWorkflow:
             print(f"[WARN] 使用默认字体 '阳华体'")
             return draft.FontType.阳华体
     
+    def _get_dynamic_cover_path(self, account_id: str) -> Optional[str]:
+        """根据账号ID获取动态封面图片路径
+        
+        Args:
+            account_id: 账号ID
+            
+        Returns:
+            封面图片路径，如果找不到返回None
+        """
+        if not account_id:
+            return None
+        
+        # 定义动态封面图片的查找路径
+        cover_paths = [
+            # 1. 账号专用封面目录
+            f"resource/covers/{account_id}.jpg",
+            f"resource/covers/{account_id}.png",
+            f"resource/covers/{account_id}.jpeg",
+            # 2. 账号专用封面文件（带前缀）
+            f"resource/covers/cover_{account_id}.jpg",
+            f"resource/covers/cover_{account_id}.png",
+            f"resource/covers/cover_{account_id}.jpeg",
+            # 3. 模板目录下的账号封面
+            f"resource/templates/{account_id}/cover.jpg",
+            f"resource/templates/{account_id}/cover.png",
+            f"resource/templates/{account_id}/cover.jpeg",
+        ]
+        
+        # 获取项目根目录
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.join(current_dir, '..', '..')
+        
+        # 检查每个可能的路径
+        for cover_path in cover_paths:
+            full_path = os.path.join(project_root, cover_path)
+            if os.path.exists(full_path):
+                print(f"[DEBUG] 找到账号 {account_id} 的动态封面: {full_path}")
+                return full_path
+        
+        print(f"[DEBUG] 账号 {account_id} 没有找到动态封面，将使用模板默认封面")
+        return None
+    
     def _hex_to_rgb(self, hex_color: str) -> Tuple[float, float, float]:
         """将十六进制颜色转换为RGB元组
         
@@ -431,7 +473,7 @@ class VideoEditingWorkflow:
         return f"temp_materials/{filename}"
     
     def translate_to_english(self, chinese_text: str) -> str:
-        """使用豆包API将中文翻译为英文"""
+        """使用豆包API将中文翻译为英文，确保字幕简洁准确"""
         if not self.volcengine_asr or not self.volcengine_asr.doubao_token:
             print("[WARN] 豆包API未配置，跳过翻译")
             return ""
@@ -440,11 +482,11 @@ class VideoEditingWorkflow:
             payload = {
                 "model": self.volcengine_asr.doubao_model,
                 "messages": [
-                    {"role": "system", "content": "You are a professional translator. Translate the given Chinese text to English. Requirements: 1. Maintain accurate meaning 2. Natural and fluent language 3. Suitable for subtitle display 4. Return ONLY the translation result, no explanations, no additional text, no Chinese characters"},
+                    {"role": "system", "content": "You are a professional subtitle translator. Translate Chinese text to English for video subtitles. Requirements: 1. Keep it concise and clear 2. Use simple, natural English 3. Maintain the original meaning 4. No explanations, no additional text, no Chinese characters 5. Return ONLY the English translation"},
                     {"role": "user", "content": chinese_text}
                 ],
-                "max_tokens": 1000,
-                "temperature": 0.3
+                "max_tokens": 200,  # 减少token数量，确保简洁
+                "temperature": 0.1  # 降低随机性，确保准确性
             }
             
             resp = requests.post(
@@ -454,18 +496,51 @@ class VideoEditingWorkflow:
                     'Authorization': f'Bearer {self.volcengine_asr.doubao_token}'
                 },
                 json=payload,
-                timeout=15
+                timeout=10  # 减少超时时间
             )
             
             if resp.status_code == 200:
                 content = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '').strip()
                 
-                # 过滤掉任何中文字符，确保只返回纯英文
+                # 清理翻译结果，确保只返回纯英文
                 import re
-                # 移除中文字符（包括中文标点符号）
-                english_only = re.sub(r'[\u4e00-\u9fff]', '', content)
-                # 移除多余的空格和换行
+                # 移除中文字符和中文标点符号
+                english_only = re.sub(r'[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', '', content)
+                # 移除常见的解释性词汇和短语（包括冒号前的部分）
+                english_only = re.sub(r'\b(translation|translated|meaning|explanation|note|note:|说明|翻译|意思是|翻译结果|结果|内容)\b\s*:?\s*', '', english_only, flags=re.IGNORECASE)
+                # 移除冒号后的解释内容
+                english_only = re.sub(r':\s*[^.!?]*', '', english_only)
+                # 移除重复的句子（如果出现相同内容两次）
+                sentences = english_only.split('.')
+                unique_sentences = []
+                for sentence in sentences:
+                    sentence = sentence.strip()
+                    if sentence and sentence not in unique_sentences:
+                        # 进一步检查是否包含重复的短语
+                        words = sentence.split()
+                        if len(words) > 3:  # 只对较长的句子进行重复检查
+                            # 检查是否包含重复的短语（3个词以上）
+                            has_repeat = False
+                            for i in range(len(words) - 2):
+                                phrase = ' '.join(words[i:i+3])
+                                if sentence.count(phrase) > 1:
+                                    has_repeat = True
+                                    break
+                            if not has_repeat:
+                                unique_sentences.append(sentence)
+                        else:
+                            unique_sentences.append(sentence)
+                english_only = '. '.join(unique_sentences)
+                # 移除多余的空格、换行
                 english_only = re.sub(r'\s+', ' ', english_only).strip()
+                # 确保句子以标点符号结尾
+                if english_only and not re.search(r'[.!?]$', english_only):
+                    english_only += '.'
+                
+                # 如果翻译结果为空或太短，返回原文本
+                if not english_only or len(english_only) < 2:
+                    print(f"[WARN] 翻译结果为空，跳过: '{chinese_text}'")
+                    return ""
                 
                 print(f"[DEBUG] 翻译: '{chinese_text}' -> '{english_only}'")
                 return english_only
@@ -1998,8 +2073,8 @@ class VideoEditingWorkflow:
                 size=english_font_size,
                 auto_wrapping=True,
                 bold=False,
-                align=0,  # 居中对齐
-                max_line_width=0.82
+                align=1,  # 居中对齐
+                max_line_width=0.9
             )
             
             # 创建英文字幕阴影（如果启用）
@@ -2234,12 +2309,22 @@ class VideoEditingWorkflow:
             cover_image_path = inputs.get('cover_image_path')
             cover_bottom_text = inputs.get('cover_bottom_text')
             
-            # 如果没有提供 cover_image_path，尝试使用模板配置中的 cover_background
-            if not cover_image_path and hasattr(self, 'cover_config'):
-                cover_background = self.cover_config.get('background', '')
-                if cover_background and cover_background.strip():
-                    cover_image_path = cover_background
-                    print(f"[INFO] 使用模板配置的封面背景: {cover_image_path}")
+            # 如果没有提供 cover_image_path，尝试使用动态封面或模板配置
+            if not cover_image_path:
+                # 首先尝试根据账号ID获取动态封面
+                account_id = inputs.get('account_id')
+                if account_id:
+                    dynamic_cover_path = self._get_dynamic_cover_path(account_id)
+                    if dynamic_cover_path:
+                        cover_image_path = dynamic_cover_path
+                        print(f"[INFO] 使用账号 {account_id} 的动态封面: {cover_image_path}")
+                
+                # 如果动态封面不存在，使用模板配置中的 cover_background
+                if not cover_image_path and hasattr(self, 'cover_config'):
+                    cover_background = self.cover_config.get('background', '')
+                    if cover_background and cover_background.strip():
+                        cover_image_path = cover_background
+                        print(f"[INFO] 使用模板配置的封面背景: {cover_image_path}")
 
             if cover_short_title or cover_image_path or cover_bottom_text:
                 print(f"[INFO] 准备添加封面: top='{(cover_short_title or '')[:20]}', bottom='{(cover_bottom_text or '')[:20]}', image='{cover_image_path or ''}'")
@@ -3106,8 +3191,8 @@ class VideoEditingWorkflow:
                 first_part = text_parts[0].strip()
                 second_part = text_parts[1].strip() if len(text_parts) > 1 else ""
                 
-                # 组合文本：第一段 + 换行 + 第二段
-                combined_text = first_part + "\n      " + second_part if second_part else first_part
+                # 组合文本：第一段 + 空格 + 第二段（移除换行符）
+                combined_text = first_part + " " + second_part if second_part else first_part
                 
                 # 创建富文本样式
                 highlight_ranges = []

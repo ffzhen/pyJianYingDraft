@@ -14,6 +14,7 @@
         "voice_id": "声音ID", 
         "project_name": "项目名称",
         "account": "关联账号",
+        "template": "模板名称",
         "status": "状态",
         "result ": "返回结果"
       },

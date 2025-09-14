@@ -45,6 +45,10 @@ class BatchCozeWorkflow:
         # 飞书状态更新配置
         self.feishu_task_source = None
         
+        # 模板配置
+        self.template_config = None
+        self.templates_cache = {}  # 缓存已加载的模板配置
+        
     def set_background_music(self, music_path: str, volume: float = 0.3):
         """设置背景音乐"""
         if not os.path.exists(music_path):
@@ -66,6 +70,42 @@ class BatchCozeWorkflow:
         self.doubao_model = model
         print(f"[INFO] 豆包API已设置: {model}")
     
+    def set_template_config(self, template_config: Dict[str, Any]):
+        """设置默认模板配置"""
+        self.template_config = template_config
+        print(f"[INFO] 默认模板配置已设置: {template_config.get('name', '未知模板') if template_config else '默认模板'}")
+    
+    def load_template_config(self, template_name: str) -> Dict[str, Any]:
+        """动态加载模板配置"""
+        if template_name in self.templates_cache:
+            return self.templates_cache[template_name]
+        
+        # 加载templates.json
+        templates_file = os.path.join(os.path.dirname(__file__), '..', '..', 'python-gui', 'templates.json')
+        if not os.path.exists(templates_file):
+            print(f"[WARN] 模板文件不存在: {templates_file}")
+            return self.template_config or {}
+        
+        try:
+            import json
+            with open(templates_file, 'r', encoding='utf-8') as f:
+                templates = json.load(f)
+            
+            # 查找指定模板
+            template_config = templates.get(template_name)
+            if not template_config:
+                print(f"[WARN] 未找到模板 '{template_name}'，使用默认模板")
+                template_config = templates.get('default', {})
+            
+            # 缓存模板配置
+            self.templates_cache[template_name] = template_config
+            print(f"[INFO] 已加载模板配置: {template_name}")
+            return template_config
+            
+        except Exception as e:
+            print(f"[ERROR] 加载模板配置失败: {e}")
+            return self.template_config or {}
+    
     def process_single_task(self, task_data: Dict[str, Any]) -> Dict[str, Any]:
         """处理单个任务
         
@@ -80,14 +120,19 @@ class BatchCozeWorkflow:
         digital_no = task_data.get('digital_no')
         voice_id = task_data.get('voice_id')
         title = task_data.get('title')
+        template_name = task_data.get('template', 'default')
+        account_id = task_data.get('account_id')  # 添加账号ID提取
         feishu_record_id = task_data.get('feishu_record_id')
         
-        print(f"[{task_id}] 开始处理任务: {title}")
+        print(f"[{task_id}] 开始处理任务: {title} (模板: {template_name})")
         start_time = datetime.now()
         
         try:
-            # 创建工作流实例，直接使用title作为项目名称
-            workflow = CozeVideoWorkflow(self.draft_folder_path)
+            # 动态加载模板配置
+            task_template_config = self.load_template_config(template_name)
+            
+            # 创建工作流实例，使用动态模板配置
+            workflow = CozeVideoWorkflow(self.draft_folder_path, template_config=task_template_config)
             
             # 设置API配置
             workflow.set_doubao_api(self.doubao_token, self.doubao_model)
@@ -97,7 +142,7 @@ class BatchCozeWorkflow:
                 workflow.set_background_music(self.background_music_path, self.background_music_volume)
             
             # 执行工作流
-            result = workflow.run_complete_workflow(content, digital_no, voice_id, title)
+            result = workflow.run_complete_workflow(content, digital_no, voice_id, title, account_id)
             
             # 记录结果
             task_result = {
