@@ -41,6 +41,14 @@ PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
+# 添加src目录到路径以导入notes_collector
+SRC_DIR = os.path.dirname(os.path.abspath(__file__))
+if SRC_DIR not in sys.path:
+    sys.path.insert(0, SRC_DIR)
+
+# 导入笔记收集器模块
+from notes_collector import FeishuNotesCollector, NotesCollectionThread
+
 # 兼容导入：优先按包路径导入，失败则直接将 workflow 目录加入路径后相对导入
 try:
     from workflow.examples.coze_complete_video_workflow import CozeVideoWorkflow
@@ -147,6 +155,8 @@ class VideoGeneratorGUI:
         """临时日志方法"""
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         log_entry = f"[{timestamp}] {message}"
+        if not hasattr(self, 'temp_logs'):
+            self.temp_logs = []
         self.temp_logs.append(log_entry)
         print(log_entry)  # 同时输出到控制台
 
@@ -159,9 +169,14 @@ class VideoGeneratorGUI:
                 self.log_text.see(tk.END)
             delattr(self, 'temp_logs')
 
-        # 恢复正式的log_message方法（删除临时方法引用）
-        if hasattr(self, 'log_message') and self.log_message == self._temp_log_message:
-            del self.log_message
+        # 清理临时方法（如果存在）
+        try:
+            if hasattr(self, '_temp_log_message'):
+                delattr(self, '_temp_log_message')
+        except AttributeError:
+            pass
+
+        # log_message方法已经在create_log_tab中定义，无需额外操作
 
     def create_gui(self):
         """创建GUI界面"""
@@ -174,8 +189,9 @@ class VideoGeneratorGUI:
         self._temp_log_setup()
         # 临时设置log_message方法
         self.log_message = self._temp_log_message
-
+        self.create_notes_collection_tab()
         self.create_feishu_async_tab()
+       
         # self.create_simple_compose_tab()  # 隐藏简单合成
         # self.create_manual_tab()  # 隐藏手动合成
         self.create_workflow_tab()
@@ -1574,23 +1590,73 @@ class VideoGeneratorGUI:
         ttk.Label(coze_frame, text="Workflow ID:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
         self.coze_workflow_id_entry = ttk.Entry(coze_frame, width=60)
         self.coze_workflow_id_entry.grid(row=1, column=1, padx=5, pady=5)
-        
-        # 飞书配置
+
+        ttk.Label(coze_frame, text="精选笔记工作流ID:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.coze_notes_workflow_id_entry = ttk.Entry(coze_frame, width=60)
+        self.coze_notes_workflow_id_entry.grid(row=2, column=1, padx=5, pady=5)
+
+        # 飞书配置（统一所有飞书相关配置）
         feishu_frame = ttk.LabelFrame(scrollable_frame, text="飞书配置")
         feishu_frame.pack(fill='x', padx=20, pady=10)
-        
+
+        # 基础认证配置
         ttk.Label(feishu_frame, text="App ID:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
         self.feishu_app_id_entry = ttk.Entry(feishu_frame, width=60)
         self.feishu_app_id_entry.grid(row=0, column=1, padx=5, pady=5)
-        
+
         ttk.Label(feishu_frame, text="App Secret:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
         self.feishu_app_secret_entry = ttk.Entry(feishu_frame, width=60, show="*")
         self.feishu_app_secret_entry.grid(row=1, column=1, padx=5, pady=5)
-        
-        ttk.Label(feishu_frame, text="Table ID:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_table_id_entry = ttk.Entry(feishu_frame, width=60)
-        self.feishu_table_id_entry.grid(row=2, column=1, padx=5, pady=5)
-        
+
+        ttk.Label(feishu_frame, text="App Token:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_app_token_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_app_token_entry.grid(row=2, column=1, padx=5, pady=5)
+
+        # 表格ID配置
+        ttk.Separator(feishu_frame, orient='horizontal').grid(row=3, column=0, columnspan=2, sticky='ew', pady=10)
+        ttk.Label(feishu_frame, text="主表格ID:", font=('TkDefaultFont', 9, 'bold')).grid(row=4, column=0, sticky='w', padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  内容表ID:").grid(row=6, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_content_table_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_content_table_id_entry.grid(row=6, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  内容视图ID:").grid(row=7, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_content_view_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_content_view_id_entry.grid(row=7, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  账号表ID:").grid(row=8, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_account_table_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_account_table_id_entry.grid(row=8, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  声音表ID:").grid(row=9, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_voice_table_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_voice_table_id_entry.grid(row=9, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  数字人表ID:").grid(row=10, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_digital_table_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_digital_table_id_entry.grid(row=10, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  数字人视图ID:").grid(row=11, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_digital_view_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_digital_view_id_entry.grid(row=11, column=1, padx=5, pady=5)
+
+        # 精选笔记采集配置
+        ttk.Separator(feishu_frame, orient='horizontal').grid(row=12, column=0, columnspan=2, sticky='ew', pady=10)
+        ttk.Label(feishu_frame, text="精选笔记采集配置", font=('TkDefaultFont', 9, 'bold')).grid(row=13, column=0, sticky='w', padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  采集表ID:").grid(row=14, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_notes_table_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_notes_table_id_entry.grid(row=14, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  采集视图ID:").grid(row=15, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_notes_view_id_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_notes_view_id_entry.grid(row=15, column=1, padx=5, pady=5)
+
+        ttk.Label(feishu_frame, text="  笔记链接字段:").grid(row=16, column=0, sticky='w', padx=5, pady=5)
+        self.feishu_note_link_field_entry = ttk.Entry(feishu_frame, width=60)
+        self.feishu_note_link_field_entry.grid(row=16, column=1, padx=5, pady=5)
+        self.feishu_note_link_field_entry.insert(0, "笔记链接")
+
         # 火山引擎配置
         volc_frame = ttk.LabelFrame(scrollable_frame, text="火山引擎ASR配置")
         volc_frame.pack(fill='x', padx=20, pady=10)
@@ -1643,31 +1709,10 @@ class VideoGeneratorGUI:
         ttk.Label(proxy_frame, text="NO_PROXY:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
         self.no_proxy_entry = ttk.Entry(proxy_frame, width=60)
         self.no_proxy_entry.grid(row=2, column=1, padx=5, pady=5)
-        
-        # 飞书异步工作流配置
-        feishu_async_frame = ttk.LabelFrame(scrollable_frame, text="飞书异步工作流配置")
-        feishu_async_frame.pack(fill='x', padx=20, pady=10)
-        
-        ttk.Label(feishu_async_frame, text="App Token:").grid(row=0, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_app_token_entry = ttk.Entry(feishu_async_frame, width=60)
-        self.feishu_app_token_entry.grid(row=0, column=1, padx=5, pady=5)
-        
-        ttk.Label(feishu_async_frame, text="内容表ID:").grid(row=1, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_content_table_id_entry = ttk.Entry(feishu_async_frame, width=60)
-        self.feishu_content_table_id_entry.grid(row=1, column=1, padx=5, pady=5)
-        
-        ttk.Label(feishu_async_frame, text="账号表ID:").grid(row=2, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_account_table_id_entry = ttk.Entry(feishu_async_frame, width=60)
-        self.feishu_account_table_id_entry.grid(row=2, column=1, padx=5, pady=5)
-        
-        ttk.Label(feishu_async_frame, text="声音表ID:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_voice_table_id_entry = ttk.Entry(feishu_async_frame, width=60)
-        self.feishu_voice_table_id_entry.grid(row=3, column=1, padx=5, pady=5)
-        
-        ttk.Label(feishu_async_frame, text="数字人表ID:").grid(row=4, column=0, sticky='w', padx=5, pady=5)
-        self.feishu_digital_table_id_entry = ttk.Entry(feishu_async_frame, width=60)
-        self.feishu_digital_table_id_entry.grid(row=4, column=1, padx=5, pady=5)
-        
+
+        # 注释掉的重复配置 - 已合并到上面的统一飞书配置中
+        # feishu_async_frame 已被移除，所有字段现在都在 feishu_frame 中
+
         # 并发配置
         concurrent_frame = ttk.LabelFrame(scrollable_frame, text="并发配置")
         concurrent_frame.pack(fill='x', padx=20, pady=10)
@@ -1686,6 +1731,7 @@ class VideoGeneratorGUI:
         self.poll_interval_entry = ttk.Entry(concurrent_frame, width=20)
         self.poll_interval_entry.insert(0, "30")
         self.poll_interval_entry.grid(row=2, column=1, padx=5, pady=5)
+
         
         # 按钮区域
         button_frame = ttk.Frame(scrollable_frame)
@@ -1832,7 +1878,68 @@ class VideoGeneratorGUI:
         self.async_running = False
         self.async_tasks = {}
         self.task_update_timer = None
-    
+
+    def create_notes_collection_tab(self):
+        """创建精选笔记批量采集标签页"""
+        notes_frame = ttk.Frame(self.notebook)
+        self.notebook.add(notes_frame, text="精选笔记批量采集")
+
+        ttk.Label(notes_frame, text="精选笔记批量采集", font=("Arial", 14, "bold")).pack(pady=10)
+
+        
+        # 配置状态显示
+        # config_status_frame = ttk.LabelFrame(notes_frame, text="配置状态")
+        # config_status_frame.pack(fill='x', padx=20, pady=10)
+
+        # self.config_status_text = scrolledtext.ScrolledText(config_status_frame, height=4, width=80)
+        # self.config_status_text.pack(fill='x', padx=10, pady=10)
+        # self.config_status_text.config(state='disabled')
+
+        # 操作按钮
+        button_frame = ttk.Frame(notes_frame)
+        button_frame.pack(fill='x', padx=20, pady=10)
+
+        # ttk.Button(button_frame, text="检查配置", command=self.check_notes_collection_config).pack(side='left', padx=5)
+        self.start_collection_btn = ttk.Button(button_frame, text="开始批量采集", command=self.start_notes_collection)
+        self.start_collection_btn.pack(side='left', padx=5)
+
+        self.stop_collection_btn = ttk.Button(button_frame, text="停止采集", command=self.stop_notes_collection, state='disabled')
+        self.stop_collection_btn.pack(side='left', padx=5)
+
+        ttk.Button(button_frame, text="清空日志", command=self.clear_notes_log).pack(side='left', padx=5)
+
+        # 进度显示
+        progress_frame = ttk.LabelFrame(notes_frame, text="采集进度")
+        progress_frame.pack(fill='x', padx=20, pady=10)
+
+        self.notes_progress_bar = ttk.Progressbar(progress_frame, length=400, mode='determinate')
+        self.notes_progress_bar.pack(padx=10, pady=5)
+
+        self.notes_progress_label = ttk.Label(progress_frame, text="准备就绪")
+        self.notes_progress_label.pack(pady=5)
+
+        # 统计信息
+        stats_frame = ttk.Frame(progress_frame)
+        stats_frame.pack(pady=5)
+
+        self.notes_stats_label = ttk.Label(stats_frame, text="总数: 0 | 成功: 0 | 失败: 0")
+        self.notes_stats_label.pack(side='left', padx=20)
+
+        # 日志显示
+        log_frame = ttk.LabelFrame(notes_frame, text="采集日志")
+        log_frame.pack(fill='both', expand=True, padx=20, pady=10)
+
+        self.notes_log_text = scrolledtext.ScrolledText(log_frame, height=8, width=80)
+        self.notes_log_text.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # 状态变量
+        self.notes_collector = None
+        self.notes_collection_thread = None
+        self.notes_collection_running = False
+
+        # 初始化配置状态显示
+        self.root.after(1000, self.check_notes_collection_config)
+
     def create_manual_tab(self):
         """创建手动生成标签页"""
         manual_frame = ttk.Frame(self.notebook)
@@ -2045,12 +2152,23 @@ class VideoGeneratorGUI:
         """保存配置文件"""
         self.config['coze'] = {
             'bearer_token': self.coze_token_entry.get(),
-            'workflow_id': self.coze_workflow_id_entry.get()
+            'workflow_id': self.coze_workflow_id_entry.get(),
+            'notes_workflow_id': getattr(self, 'coze_notes_workflow_id_entry', type('', (), {'get': lambda: ''})).get()
         }
+        # 统一的飞书配置 - 包含所有飞书相关配置
         self.config['feishu'] = {
             'app_id': self.feishu_app_id_entry.get(),
             'app_secret': self.feishu_app_secret_entry.get(),
-            'table_id': self.feishu_table_id_entry.get()
+            'app_token': self.feishu_app_token_entry.get(),
+            'content_table_id': self.feishu_content_table_id_entry.get(),
+            'content_view_id': self.feishu_content_view_id_entry.get(),
+            'account_table_id': self.feishu_account_table_id_entry.get(),
+            'voice_table_id': self.feishu_voice_table_id_entry.get(),
+            'digital_table_id': self.feishu_digital_table_id_entry.get(),
+            'digital_view_id': self.feishu_digital_view_id_entry.get(),
+            'notes_table_id': self.feishu_notes_table_id_entry.get(),
+            'notes_view_id': self.feishu_notes_view_id_entry.get(),
+            'note_link_field': self.feishu_note_link_field_entry.get()
         }
         self.config['volcengine'] = {
             'appid': self.volc_appid_entry.get(),
@@ -2073,13 +2191,6 @@ class VideoGeneratorGUI:
             'http_proxy': self.http_proxy_entry.get(),
             'https_proxy': self.https_proxy_entry.get(),
             'no_proxy': self.no_proxy_entry.get()
-        }
-        self.config['feishu_async'] = {
-            'app_token': self.feishu_app_token_entry.get(),
-            'content_table_id': self.feishu_content_table_id_entry.get(),
-            'account_table_id': self.feishu_account_table_id_entry.get(),
-            'voice_table_id': self.feishu_voice_table_id_entry.get(),
-            'digital_table_id': self.feishu_digital_table_id_entry.get()
         }
         self.config['concurrent'] = {
             'max_coze_concurrent': int(self.max_coze_concurrent_entry.get() or 16),
@@ -2105,11 +2216,36 @@ class VideoGeneratorGUI:
         if 'coze' in self.config:
             self.coze_token_entry.insert(0, self.config['coze'].get('bearer_token', ''))
             self.coze_workflow_id_entry.insert(0, self.config['coze'].get('workflow_id', ''))
+            if hasattr(self, 'coze_notes_workflow_id_entry'):
+                self.coze_notes_workflow_id_entry.insert(0, self.config['coze'].get('notes_workflow_id', ''))
         
+        # 加载统一的飞书配置
         if 'feishu' in self.config:
-            self.feishu_app_id_entry.insert(0, self.config['feishu'].get('app_id', ''))
-            self.feishu_app_secret_entry.insert(0, self.config['feishu'].get('app_secret', ''))
-            self.feishu_table_id_entry.insert(0, self.config['feishu'].get('table_id', ''))
+            feishu_config = self.config['feishu']
+
+            # 数据迁移：如果feishu中有新的配置字段，从feishu_async迁移数据
+            if 'feishu_async' in self.config:
+                feishu_async_config = self.config['feishu_async']
+                # 迁移所有可能的字段
+                for key in ['app_token', 'content_table_id', 'content_view_id', 'account_table_id',
+                           'voice_table_id', 'digital_table_id', 'digital_view_id', 'notes_table_id',
+                           'notes_view_id', 'note_link_field']:
+                    if key not in feishu_config and key in feishu_async_config:
+                        feishu_config[key] = feishu_async_config[key]
+
+            # 加载所有飞书配置字段
+            self.feishu_app_id_entry.insert(0, feishu_config.get('app_id', ''))
+            self.feishu_app_secret_entry.insert(0, feishu_config.get('app_secret', ''))
+            self.feishu_app_token_entry.insert(0, feishu_config.get('app_token', ''))
+            self.feishu_content_table_id_entry.insert(0, feishu_config.get('content_table_id', ''))
+            self.feishu_content_view_id_entry.insert(0, feishu_config.get('content_view_id', ''))
+            self.feishu_account_table_id_entry.insert(0, feishu_config.get('account_table_id', ''))
+            self.feishu_voice_table_id_entry.insert(0, feishu_config.get('voice_table_id', ''))
+            self.feishu_digital_table_id_entry.insert(0, feishu_config.get('digital_table_id', ''))
+            self.feishu_digital_view_id_entry.insert(0, feishu_config.get('digital_view_id', ''))
+            self.feishu_notes_table_id_entry.insert(0, feishu_config.get('notes_table_id', ''))
+            self.feishu_notes_view_id_entry.insert(0, feishu_config.get('notes_view_id', ''))
+            self.feishu_note_link_field_entry.insert(0, feishu_config.get('note_link_field', '笔记链接'))
         
         if 'volcengine' in self.config:
             self.volc_appid_entry.insert(0, self.config['volcengine'].get('appid', ''))
@@ -2130,14 +2266,9 @@ class VideoGeneratorGUI:
             self.http_proxy_entry.insert(0, self.config['proxy'].get('http_proxy', ''))
             self.https_proxy_entry.insert(0, self.config['proxy'].get('https_proxy', ''))
             self.no_proxy_entry.insert(0, self.config['proxy'].get('no_proxy', ''))
-        
-        if 'feishu_async' in self.config:
-            self.feishu_app_token_entry.insert(0, self.config['feishu_async'].get('app_token', ''))
-            self.feishu_content_table_id_entry.insert(0, self.config['feishu_async'].get('content_table_id', ''))
-            self.feishu_account_table_id_entry.insert(0, self.config['feishu_async'].get('account_table_id', ''))
-            self.feishu_voice_table_id_entry.insert(0, self.config['feishu_async'].get('voice_table_id', ''))
-            self.feishu_digital_table_id_entry.insert(0, self.config['feishu_async'].get('digital_table_id', ''))
-        
+
+        # 注意：飞书配置已经在上面的统一配置中加载，此处不需要重复加载
+
         if 'concurrent' in self.config:
             self.max_coze_concurrent_entry.delete(0, tk.END)
             self.max_coze_concurrent_entry.insert(0, str(self.config['concurrent'].get('max_coze_concurrent', 16)))
@@ -2266,7 +2397,19 @@ class VideoGeneratorGUI:
                 json.dump(self.schedules, f, ensure_ascii=False, indent=2)
         except Exception as e:
             self.log_message(f"保存定时任务数据失败: {e}")
-    
+
+    def get_feishu_config(self, key, default=None):
+        """获取飞书配置，兼容旧版本feishu_async配置"""
+        # 优先从feishu配置中获取
+        if 'feishu' in self.config and key in self.config['feishu']:
+            return self.config['feishu'][key]
+
+        # 如果feishu中没有，尝试从feishu_async中获取（向后兼容）
+        if 'feishu_async' in self.config and key in self.config['feishu_async']:
+            return self.config['feishu_async'][key]
+
+        return default
+
     def browse_jianying_path(self):
         """浏览剪映草稿文件夹"""
         folder_path = filedialog.askdirectory()
@@ -2285,13 +2428,17 @@ class VideoGeneratorGUI:
                     raise ValueError("请先配置飞书App ID")
                 
                 # 模拟获取飞书数据
+                app_token = self.get_feishu_config('app_token')
+                if not app_token:
+                    raise ValueError("飞书app_token配置缺失，请在配置中添加app_token")
+
                 feishu_client = FeishuClient(
                     self.config['feishu']['app_id'],
                     self.config['feishu']['app_secret'],
-                    self.config['feishu_async']['app_token']  # 使用异步配置中的app_token
+                    app_token  # 使用兼容性方法获取app_token
                 )
                 
-                data = feishu_client.get_table_data(self.config['feishu_async']['content_table_id'])
+                data = feishu_client.get_table_data(self.get_feishu_config('content_table_id'))
                 
                 # 在GUI中显示数据
                 self.root.after(0, self.display_feishu_data, data)
@@ -3140,14 +3287,18 @@ class VideoGeneratorGUI:
                 self.log_message("开始获取飞书内容...")
                 
                 # 检查飞书配置
-                if 'feishu_async' not in self.config or not self.config['feishu_async'].get('app_token'):
+                if not self.get_feishu_config('app_token'):
                     raise ValueError("请先配置飞书异步工作流参数")
                 
                 # 创建飞书客户端
+                app_token = self.get_feishu_config('app_token')
+                if not app_token:
+                    raise ValueError("飞书app_token配置缺失，请在配置中添加app_token")
+
                 feishu_client = FeishuClient(
                     self.config['feishu']['app_id'],
                     self.config['feishu']['app_secret'],
-                    self.config['feishu_async']['app_token']
+                    app_token
                 )
                 
                 # 构建过滤条件
@@ -3155,27 +3306,28 @@ class VideoGeneratorGUI:
                 include_ids = self.include_ids_entry.get().strip()
                 exclude_ids = self.exclude_ids_entry.get().strip()
                 
-                filter_condition = feishu_client.build_filter_condition(
+                filter_condition = self.build_filter_condition(
                     status_filter, include_ids, exclude_ids
                 )
                 
                 # 记录过滤条件信息
                 filter_info = []
-                if status_filter:
+                if status_filter and status_filter != "视频草稿生成":
                     filter_info.append(f"状态: {status_filter}")
                 if include_ids:
                     filter_info.append(f"包含ID: {include_ids}")
                 if exclude_ids:
                     filter_info.append(f"排除ID: {exclude_ids}")
-                
+
+                # 获取内容表数据
+                content_table_id = self.get_feishu_config('content_table_id')
+
                 if filter_info:
                     self.log_message(f"应用过滤条件: {', '.join(filter_info)}")
+                    data = feishu_client.get_table_data(content_table_id, filter_condition)
                 else:
-                    self.log_message("未设置过滤条件，获取所有记录")
-                
-                # 获取内容表数据（应用过滤条件）
-                content_table_id = self.config['feishu_async']['content_table_id']
-                data = feishu_client.get_table_data(content_table_id, filter_condition)
+                    self.log_message("使用默认过滤条件（状态=视频草稿生成）")
+                    data = feishu_client.get_table_data(content_table_id, filter_condition)
                 
                 # 存储数据
                 self.feishu_content_data = data
@@ -3411,8 +3563,8 @@ class VideoGeneratorGUI:
         required_configs = [
             ('feishu', 'app_id', '飞书App ID'),
             ('feishu', 'app_secret', '飞书App Secret'),
-            ('feishu_async', 'app_token', '飞书App Token'),
-            ('feishu_async', 'content_table_id', '内容表ID'),
+            ('feishu', 'app_token', '飞书App Token'),
+            ('feishu', 'content_table_id', '内容表ID'),
             ('coze', 'bearer_token', 'Coze Bearer Token'),
             ('coze', 'workflow_id', 'Coze Workflow ID'),
             ('jianying', 'draft_folder_path', '剪映草稿文件夹路径')
@@ -3436,11 +3588,11 @@ class VideoGeneratorGUI:
             'api_config': {
                 'app_id': self.config['feishu']['app_id'],
                 'app_secret': self.config['feishu']['app_secret'],
-                'app_token': self.config['feishu_async']['app_token']
+                'app_token': self.get_feishu_config('app_token')
             },
             'tables': {
                 'content_table': {
-                    'table_id': self.config['feishu_async']['content_table_id'],
+                    'table_id': self.get_feishu_config('content_table_id'),
                     'field_mapping': {
                         'title': '仿写标题',
                         'content': '仿写文案',
@@ -3453,17 +3605,17 @@ class VideoGeneratorGUI:
                     }
                 },
                 'account_table': {
-                    'table_id': self.config['feishu_async']['account_table_id'],
+                    'table_id': self.get_feishu_config('account_table_id'),
                     'account_field': '账号',
                     'name_field': '名称'
                 },
                 'voice_table': {
-                    'table_id': self.config['feishu_async']['voice_table_id'],
+                    'table_id': self.get_feishu_config('voice_table_id'),
                     'account_field': '关联账号',
                     'voice_id_field': '音色ID'
                 },
                 'digital_human_table': {
-                    'table_id': self.config['feishu_async']['digital_table_id'],
+                    'table_id': self.get_feishu_config('digital_table_id'),
                     'account_field': '关联账号',
                     'digital_no_field': '数字人编号'
                 }
@@ -3487,21 +3639,47 @@ class VideoGeneratorGUI:
         return config
 
     
-    def build_filter_condition(self) -> Dict[str, Any]:
+    def build_filter_condition(self, status_filter: str = None, include_ids: str = None, exclude_ids: str = None) -> Dict[str, Any]:
         """构建过滤条件"""
-        status = self.status_filter_entry.get().strip()
-        if not status:
-            status = "视频草稿生成"
-        
+        # 如果没有提供参数，从GUI控件获取
+        if status_filter is None:
+            status_filter = self.status_filter_entry.get().strip()
+        if not status_filter:
+            status_filter = "视频草稿生成"
+
+        conditions = []
+
+        # 添加状态过滤条件
+        conditions.append({
+            "field_name": "状态",
+            "operator": "is",
+            "value": [status_filter]
+        })
+
+        # 添加包含ID过滤条件
+        if include_ids:
+            include_list = [id.strip() for id in include_ids.split(',') if id.strip()]
+            if include_list:
+                conditions.append({
+                    "field_name": "record_id",
+                    "operator": "is_in",
+                    "value": include_list
+                })
+
+        # 添加排除ID过滤条件 - 注意：飞书API可能不支持is_not_in，暂时注释掉
+        # if exclude_ids:
+        #     exclude_list = [id.strip() for id in exclude_ids.split(',') if id.strip()]
+        #     if exclude_list:
+        #         conditions.append({
+        #             "field_name": "record_id",
+        #             "operator": "is_not_in",
+        #             "value": exclude_list
+        #         })
+
+        # 构建飞书API过滤条件格式
         return {
             "conjunction": "and",
-            "conditions": [
-                {
-                    "field_name": "状态",
-                    "operator": "is",
-                    "value": [status]
-                }
-            ]
+            "conditions": conditions
         }
     
     def get_include_ids(self) -> Optional[List[str]]:
@@ -3972,16 +4150,22 @@ class VideoGeneratorGUI:
         self.coze_workflow_id_entry.delete(0, tk.END)
         self.feishu_app_id_entry.delete(0, tk.END)
         self.feishu_app_secret_entry.delete(0, tk.END)
-        self.feishu_table_id_entry.delete(0, tk.END)
         self.volc_appid_entry.delete(0, tk.END)
         self.volc_token_entry.delete(0, tk.END)
         self.doubao_token_entry.delete(0, tk.END)
         self.jianying_path_entry.delete(0, tk.END)
+        # 清空所有飞书配置字段
         self.feishu_app_token_entry.delete(0, tk.END)
         self.feishu_content_table_id_entry.delete(0, tk.END)
+        self.feishu_content_view_id_entry.delete(0, tk.END)
         self.feishu_account_table_id_entry.delete(0, tk.END)
         self.feishu_voice_table_id_entry.delete(0, tk.END)
         self.feishu_digital_table_id_entry.delete(0, tk.END)
+        self.feishu_digital_view_id_entry.delete(0, tk.END)
+        self.feishu_notes_table_id_entry.delete(0, tk.END)
+        self.feishu_notes_view_id_entry.delete(0, tk.END)
+        self.feishu_note_link_field_entry.delete(0, tk.END)
+        self.feishu_note_link_field_entry.insert(0, "笔记链接")
         
         # 重置并发配置为默认值
         self.max_coze_concurrent_entry.delete(0, tk.END)
@@ -3990,7 +4174,218 @@ class VideoGeneratorGUI:
         self.max_synthesis_workers_entry.insert(0, "4")
         self.poll_interval_entry.delete(0, tk.END)
         self.poll_interval_entry.insert(0, "30")
-    
+
+    # ==================== 精选笔记批量采集功能 ====================
+
+    def check_notes_collection_config(self):
+        """检查笔记采集配置状态"""
+        config_status = []
+        config_ready = True
+
+        # 检查飞书配置
+        feishu_app_token = self.get_feishu_config('app_token', '')
+        if feishu_app_token:
+            config_status.append("✓ 飞书App Token: 已配置")
+        else:
+            config_status.append("✗ 飞书App Token: 未配置 (请在配置管理中设置飞书配置)")
+            config_ready = False
+
+        # 检查表格配置
+        feishu_table_id = self.config.get('feishu', {}).get('notes_table_id', '')
+        if feishu_table_id:
+            config_status.append(f"✓ 飞书表格ID: {feishu_table_id}")
+        else:
+            config_status.append("✗ 飞书表格ID: 未配置 (请在配置管理中设置 feishu.notes_table_id)")
+            config_ready = False
+
+        # 检查飞书视图ID（可选）
+        feishu_view_id = self.get_feishu_config('notes_view_id', '')
+        if feishu_view_id:
+            config_status.append(f"✓ 飞书视图ID: {feishu_view_id}")
+        else:
+            config_status.append("✓ 飞书视图ID: 未设置 (可选)")
+
+        # 检查笔记链接字段
+        note_link_field = self.get_feishu_config('note_link_field', '笔记链接')
+        config_status.append(f"✓ 笔记链接字段: {note_link_field}")
+
+        # 检查Coze配置
+        coze_token = self.config.get('coze', {}).get('bearer_token', '')
+        if coze_token:
+            config_status.append("✓ Coze Token: 已配置")
+        else:
+            config_status.append("✗ Coze Token: 未配置 (请在配置管理中设置 coze.bearer_token)")
+            config_ready = False
+
+        coze_workflow_id = self.config.get('coze', {}).get('notes_workflow_id', '')
+        if coze_workflow_id:
+            config_status.append(f"✓ Coze工作流ID: {coze_workflow_id}")
+        else:
+            config_status.append("✗ Coze工作流ID: 未配置 (请在配置管理中设置 coze.notes_workflow_id)")
+            config_ready = False
+
+        # 更新配置状态显示
+        self.config_status_text.config(state='normal')
+        self.config_status_text.delete(1.0, tk.END)
+        self.config_status_text.insert(tk.END, '\n'.join(config_status))
+        self.config_status_text.config(state='disabled')
+
+        # 更新按钮状态
+        if config_ready:
+            self.start_collection_btn.config(state='normal')
+            self.notes_progress_label.config(text="配置已就绪，可以开始采集")
+        else:
+            self.start_collection_btn.config(state='disabled')
+            self.notes_progress_label.config(text="配置不完整，请检查配置")
+
+        return config_ready
+
+    def start_notes_collection(self):
+        """开始批量采集笔记"""
+        # 从配置系统获取参数
+        feishu_app_token = self.get_feishu_config('app_token', '')
+        feishu_table_id = self.get_feishu_config('notes_table_id', '')
+        feishu_view_id = self.get_feishu_config('notes_view_id', '')
+        coze_token = self.config.get('coze', {}).get('bearer_token', '')
+        coze_workflow_id = self.config.get('coze', {}).get('notes_workflow_id', '')
+        note_link_field = self.get_feishu_config('note_link_field', '笔记链接')
+
+        # 验证必填参数
+        if not feishu_app_token:
+            messagebox.showerror("错误", "飞书App Token未配置，请在配置管理中设置飞书配置")
+            return
+        if not feishu_table_id:
+            messagebox.showerror("错误", "精选笔记采集表ID未配置，请在配置管理中设置飞书配置")
+            return
+        if not coze_token:
+            messagebox.showerror("错误", "Coze Token未配置，请在配置管理中设置 coze.bearer_token")
+            return
+        if not coze_workflow_id:
+            messagebox.showerror("错误", "精选笔记工作流ID未配置，请在配置管理中设置 coze.notes_workflow_id")
+            return
+        if not note_link_field:
+            messagebox.showerror("错误", "请输入笔记链接字段名")
+            return
+
+        # 如果已经在运行，先停止
+        if self.notes_collection_running:
+            self.stop_notes_collection()
+
+        # 初始化收集器（传递日志回调函数）
+        self.notes_collector = FeishuNotesCollector(self.config, log_callback=self.notes_log_message)
+
+        # 准备参数
+        params = {
+            'feishu_app_token': feishu_app_token,
+            'feishu_table_id': feishu_table_id,
+            'feishu_view_id': feishu_view_id,
+            'coze_token': coze_token,
+            'coze_workflow_id': coze_workflow_id,
+            'note_link_field': note_link_field
+        }
+
+        # 创建并启动采集线程
+        self.notes_collection_thread = NotesCollectionThread(
+            self.notes_collector,
+            params,
+            callback=self.notes_collection_callback
+        )
+
+        self.notes_collection_running = True
+        self.notes_collection_thread.start()
+
+        # 更新UI状态
+        self.start_collection_btn.config(state='disabled')
+        self.stop_collection_btn.config(state='normal')
+        self.notes_progress_bar['value'] = 0
+        self.notes_progress_label.config(text="正在初始化...")
+        self.notes_stats_label.config(text="总数: 0 | 成功: 0 | 失败: 0")
+        self.notes_log_message("开始批量采集笔记...")
+
+    def stop_notes_collection(self):
+        """停止批量采集"""
+        if self.notes_collection_thread and self.notes_collection_thread.is_running:
+            self.notes_collection_thread.stop()
+            self.notes_log_message("正在停止采集...")
+
+        self.notes_collection_running = False
+        self.start_collection_btn.config(state='normal')
+        self.stop_collection_btn.config(state='disabled')
+        self.notes_progress_label.config(text="采集已停止")
+
+    def notes_collection_callback(self, result):
+        """笔记采集回调函数"""
+        if isinstance(result, dict) and result.get('type') == 'progress':
+            # 进度更新
+            self.root.after(0, self.update_notes_progress, result['message'], result['progress'])
+        else:
+            # 最终结果
+            self.root.after(0, self.notes_collection_completed, result)
+
+    def update_notes_progress(self, message, progress):
+        """更新采集进度"""
+        self.notes_progress_bar['value'] = progress
+        self.notes_progress_label.config(text=message)
+
+        if hasattr(self, 'notes_collection_thread') and self.notes_collection_thread:
+            # 更新统计信息
+            results = self.notes_collection_thread.results
+            if results:
+                stats_text = f"总数: {results.get('total', 0)} | 成功: {results.get('success', 0)} | 失败: {results.get('failed', 0)}"
+                self.notes_stats_label.config(text=stats_text)
+
+    def notes_collection_completed(self, results):
+        """采集完成处理"""
+        self.notes_collection_running = False
+        self.start_collection_btn.config(state='normal')
+        self.stop_collection_btn.config(state='disabled')
+
+        if results:
+            # 显示最终统计
+            total = results.get('total', 0)
+            success = results.get('success', 0)
+            failed = results.get('failed', 0)
+            errors = results.get('errors', [])
+
+            stats_text = f"总数: {total} | 成功: {success} | 失败: {failed}"
+            self.notes_stats_label.config(text=stats_text)
+            self.notes_progress_label.config(text="采集完成")
+            self.notes_progress_bar['value'] = 100
+
+            # 记录结果
+            self.notes_log_message(f"采集完成! 总数: {total}, 成功: {success}, 失败: {failed}")
+
+            # 显示错误信息
+            if errors:
+                self.notes_log_message(f"错误信息:")
+                for error in errors[:10]:  # 只显示前10个错误
+                    self.notes_log_message(f"  - {error}")
+                if len(errors) > 10:
+                    self.notes_log_message(f"  ... 还有 {len(errors) - 10} 个错误")
+
+            # 显示处理时间
+            start_time = results.get('start_time')
+            end_time = results.get('end_time')
+            if start_time and end_time:
+                duration = end_time - start_time
+                duration_seconds = duration.total_seconds()
+                self.notes_log_message(f"处理耗时: {duration_seconds:.1f} 秒")
+
+    def notes_log_message(self, message):
+        """记录笔记采集日志"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
+        self.notes_log_text.insert(tk.END, log_entry)
+        self.notes_log_text.see(tk.END)
+
+        # 同时记录到主日志
+        if hasattr(self, 'log_message'):
+            self.log_message(f"[笔记采集] {message}")
+
+    def clear_notes_log(self):
+        """清空笔记采集日志"""
+        self.notes_log_text.delete(1.0, tk.END)
+        self.notes_log_message("日志已清空")
 
 
 class FeishuClient:
@@ -4013,25 +4408,36 @@ class FeishuClient:
             }
             
             response = requests.post(url, json=data)
+
+            # 添加调试信息
+            print(f"Token请求URL: {url}")
+            print(f"Token请求数据: {data}")
+            print(f"Token响应状态码: {response.status_code}")
+            print(f"Token响应内容: {response.text}")
+
             response.raise_for_status()
-            
+
             result = response.json()
             if result.get('code') == 0:
                 self.access_token = result.get('tenant_access_token')
+                print(f"成功获取access_token: {self.access_token[:20]}...")
             else:
-                raise ValueError(f"获取访问令牌失败: {result.get('msg')}")
+                raise ValueError(f"获取访问令牌失败: {result.get('msg')} (错误码: {result.get('code')})")
         
         return self.access_token
     
     def get_table_data(self, table_id: str, filter_condition: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """获取表格数据
-        
+
         Args:
             table_id: 表格ID
             filter_condition: 过滤条件
         """
         if not table_id:
             raise ValueError("表格ID不能为空")
+
+        if not self.app_token:
+            raise ValueError("飞书app_token不能为空，请在配置中正确设置app_token")
         
         access_token = self.get_access_token()
         
@@ -4047,13 +4453,21 @@ class FeishuClient:
                 "filter": filter_condition
             }
             response = requests.post(url, headers=headers, json=payload)
+
+            # 添加调试信息
+            print(f"搜索请求URL: {url}")
+            print(f"搜索请求头: {headers}")
+            print(f"搜索请求体: {payload}")
+            print(f"搜索响应状态码: {response.status_code}")
+            print(f"搜索响应内容: {response.text}")
+
             response.raise_for_status()
             result = response.json()
             if result.get('code') == 0:
                 data = result.get('data', {})
                 records = data.get('items', [])
             else:
-                raise ValueError(f"搜索记录失败: {result.get('msg')}")
+                raise ValueError(f"搜索记录失败: {result.get('msg')} (错误码: {result.get('code')})")
         else:
             url = f"{self.base_url}/bitable/v1/apps/{self.app_token}/tables/{table_id}/records"
             headers = {
@@ -4061,13 +4475,20 @@ class FeishuClient:
                 "Content-Type": "application/json"
             }
             response = requests.get(url, headers=headers)
+
+            # 添加调试信息
+            print(f"请求URL: {url}")
+            print(f"请求头: {headers}")
+            print(f"响应状态码: {response.status_code}")
+            print(f"响应内容: {response.text}")
+
             response.raise_for_status()
             result = response.json()
             if result.get('code') == 0:
                 data = result.get('data', {})
                 records = data.get('items', [])
             else:
-                raise ValueError(f"获取表格数据失败: {result.get('msg')}")
+                raise ValueError(f"获取表格数据失败: {result.get('msg')} (错误码: {result.get('code')})")
         
         # 转换bitable记录格式
         converted_records = []
@@ -4080,55 +4501,6 @@ class FeishuClient:
             converted_records.append(converted_record)
         
         return converted_records
-    
-    def build_filter_condition(self, status_filter: str, include_ids: str, exclude_ids: str) -> Optional[Dict]:
-        """构建过滤条件
-        
-        Args:
-            status_filter: 状态过滤条件
-            include_ids: 包含的记录ID（逗号分隔）
-            exclude_ids: 排除的记录ID（逗号分隔）
-            
-        Returns:
-            过滤条件字典
-        """
-        filter_conditions = []
-        
-        # 状态过滤
-        if status_filter.strip():
-            filter_conditions.append({
-                "field_name": "状态",
-                "operator": "is",
-                "value": [status_filter.strip()]
-            })
-        
-        # 包含记录ID过滤
-        if include_ids.strip():
-            include_list = [id.strip() for id in include_ids.split(',') if id.strip()]
-            if include_list:
-                filter_conditions.append({
-                    "field_name": "record_id",
-                    "operator": "isOneOf",
-                    "value": include_list
-                })
-        
-        # 排除记录ID过滤
-        if exclude_ids.strip():
-            exclude_list = [id.strip() for id in exclude_ids.split(',') if id.strip()]
-            if exclude_list:
-                filter_conditions.append({
-                    "field_name": "record_id",
-                    "operator": "isNotOneOf",
-                    "value": exclude_list
-                })
-        
-        if filter_conditions:
-            return {
-                "conjunction": "and",
-                "conditions": filter_conditions
-            }
-        
-        return None
 
 
 def main():
