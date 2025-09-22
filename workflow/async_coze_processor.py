@@ -46,6 +46,7 @@ class AsyncCozeTask:
     content: str                    # 内容文案
     digital_no: str                 # 数字人编号
     voice_id: str                   # 声音ID
+    account_id: str = ""             # 账号ID（用于封面匹配）
     title: str = ""                 # 标题
     project_name: str = ""          # 项目名称
     record_id: str = ""             # 飞书记录ID（用于状态更新）
@@ -69,14 +70,15 @@ class AsyncCozeTask:
 class AsyncCozeProcessor:
     """异步Coze处理器 - 高效批量处理"""
     
-    def __init__(self, 
+    def __init__(self,
                  draft_folder_path: str,
                  coze_token: str,
                  workflow_id: str,
                  max_coze_concurrent: int = 16,
                  max_synthesis_workers: int = 4,
                  poll_interval: int = 30,
-                 template_config: Dict[str, Any] = None):
+                 template_config: Dict[str, Any] = None,
+                 log_callback=None):
         """初始化异步处理器
         
         Args:
@@ -94,7 +96,10 @@ class AsyncCozeProcessor:
         self.max_synthesis_workers = max_synthesis_workers
         self.poll_interval = poll_interval
         self.template_config = template_config or {}
-        
+
+        # 日志回调
+        self.log_callback = log_callback
+
         # 任务管理
         self.tasks: Dict[str, AsyncCozeTask] = {}
         self.task_lock = threading.RLock()
@@ -127,14 +132,22 @@ class AsyncCozeProcessor:
             'Authorization': f'Bearer {coze_token}',
             'Content-Type': 'application/json'
         }
-        
-        print(f"🚀 异步Coze处理器已初始化")
-        print(f"   Coze并发数: {max_coze_concurrent}")
-        print(f"   合成并发数: {max_synthesis_workers}")
-        print(f"   轮询间隔: {poll_interval}秒")
-    
-    def add_task(self, task_id: str, content: str, digital_no: str, 
-                 voice_id: str, title: str = "", project_name: str = "", record_id: str = "") -> None:
+
+        # 初始化完成日志
+        self.log_message(f"🚀 异步Coze处理器已初始化")
+        self.log_message(f"   Coze并发数: {max_coze_concurrent}")
+        self.log_message(f"   合成并发数: {max_synthesis_workers}")
+        self.log_message(f"   轮询间隔: {poll_interval}秒")
+
+    def log_message(self, message: str):
+        """记录日志消息"""
+        if self.log_callback:
+            self.log_callback(message)
+        else:
+            print(message)
+
+    def add_task(self, task_id: str, content: str, digital_no: str,
+                 voice_id: str, account_id: str = "", title: str = "", project_name: str = "", record_id: str = "") -> None:
         """添加异步任务"""
         with self.task_lock:
             task = AsyncCozeTask(
@@ -142,6 +155,7 @@ class AsyncCozeProcessor:
                 content=content,
                 digital_no=digital_no,
                 voice_id=voice_id,
+                account_id=account_id,
                 title=title or f"视频_{task_id}",
                 project_name=project_name or f"项目_{task_id}",
                 record_id=record_id
@@ -160,6 +174,7 @@ class AsyncCozeProcessor:
                 content=task_data['content'],
                 digital_no=task_data['digital_no'],
                 voice_id=task_data['voice_id'],
+                account_id=task_data.get('account_id', ''),
                 title=task_data.get('title', ''),
                 project_name=task_data.get('project_name', ''),
                 record_id=task_data.get('record_id', '')
@@ -175,6 +190,7 @@ class AsyncCozeProcessor:
                 "content": task.content,
                 "digitalNo": task.digital_no,
                 "voiceId": task.voice_id,
+                "accountId": task.account_id,
                 "title": task.title
             }
             
@@ -340,6 +356,7 @@ class AsyncCozeProcessor:
                 "content": task.content,
                 "digital_no": task.digital_no,
                 "voice_id": task.voice_id,
+                "account_id": task.account_id,
                 "title": task.title,
             }
             

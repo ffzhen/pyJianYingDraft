@@ -47,7 +47,22 @@ if SRC_DIR not in sys.path:
     sys.path.insert(0, SRC_DIR)
 
 # 导入笔记收集器模块
-from notes_collector import FeishuNotesCollector, NotesCollectionThread
+import sys
+import os
+
+# 确保能找到src目录下的模块
+current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
+
+try:
+    from notes_collector import FeishuNotesCollector, NotesCollectionThread
+    from content_rewriter import ContentRewriteProcessor, ContentRewriteThread
+except ImportError as e:
+    print(f"导入模块失败: {e}")
+    print(f"当前路径: {current_dir}")
+    print(f"sys.path: {sys.path}")
+    raise
 
 # 兼容导入：优先按包路径导入，失败则直接将 workflow 目录加入路径后相对导入
 try:
@@ -87,11 +102,64 @@ class VideoGeneratorGUI:
         
         # 配置文件路径 - 使用绝对路径确保在正确目录
         script_dir = os.path.dirname(os.path.abspath(__file__))
-        project_root = os.path.dirname(script_dir)  # 返回上一级目录
+
+        # 处理PyInstaller打包后的路径问题
+        if getattr(sys, 'frozen', False):
+            # 如果是打包后的exe
+            base_dir = os.path.dirname(sys.executable)
+            # 首先尝试从exe外部查找config目录
+            config_paths = [
+                os.path.join(base_dir, "config"),
+                os.path.join(base_dir, "..", "config"),
+                os.path.join(os.path.dirname(script_dir), "config")
+            ]
+            project_root = None
+            for config_path in config_paths:
+                if os.path.exists(config_path):
+                    project_root = os.path.dirname(config_path)
+                    break
+
+            # 如果外部没找到config目录，则使用临时目录并解压默认配置
+            if project_root is None:
+                import tempfile
+                import shutil
+
+                # 创建临时目录作为项目根目录
+                temp_dir = tempfile.mkdtemp(prefix="VideoBatch_")
+                config_dir = os.path.join(temp_dir, "config")
+
+                # 确保config目录存在
+                if not os.path.exists(config_dir):
+                    os.makedirs(config_dir, exist_ok=True)
+
+                # 获取PyInstaller资源路径
+                resource_dir = getattr(sys, '_MEIPASS', os.path.dirname(sys.executable))
+                source_config_dir = os.path.join(resource_dir, "config")
+
+                # 如果有打包的config文件，复制到临时目录
+                if os.path.exists(source_config_dir):
+                    shutil.copytree(source_config_dir, config_dir, dirs_exist_ok=True)
+                    self.log_message(f"已解压配置文件到临时目录: {config_dir}")
+                else:
+                    # 创建默认配置文件
+                    self.create_default_configs(config_dir)
+                    self.log_message(f"已创建默认配置文件到: {config_dir}")
+
+                project_root = temp_dir
+                self.temp_project_root = temp_dir  # 保存临时目录路径，程序退出时清理
+        else:
+            # 开发环境
+            project_root = os.path.dirname(script_dir)  # 返回上一级目录
+
         self.config_file = os.path.join(project_root, "config", "config.json")
         self.workflows_file = os.path.join(project_root, "config", "workflows.json")
         self.schedules_file = os.path.join(project_root, "config", "schedules.json")
         self.templates_file = os.path.join(project_root, "config", "templates.json")
+
+        # 确保config目录存在
+        config_dir = os.path.join(project_root, "config")
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
         
         # 数据存储
         self.config = {}
@@ -190,6 +258,7 @@ class VideoGeneratorGUI:
         # 临时设置log_message方法
         self.log_message = self._temp_log_message
         self.create_notes_collection_tab()
+        self.create_content_rewrite_tab()
         self.create_feishu_async_tab()
        
         # self.create_simple_compose_tab()  # 隐藏简单合成
@@ -1595,6 +1664,10 @@ class VideoGeneratorGUI:
         self.coze_notes_workflow_id_entry = ttk.Entry(coze_frame, width=60)
         self.coze_notes_workflow_id_entry.grid(row=2, column=1, padx=5, pady=5)
 
+        ttk.Label(coze_frame, text="内容二次创作工作流ID:").grid(row=3, column=0, sticky='w', padx=5, pady=5)
+        self.coze_content_workflow_id_entry = ttk.Entry(coze_frame, width=60)
+        self.coze_content_workflow_id_entry.grid(row=3, column=1, padx=5, pady=5)
+
         # 飞书配置（统一所有飞书相关配置）
         feishu_frame = ttk.LabelFrame(scrollable_frame, text="飞书配置")
         feishu_frame.pack(fill='x', padx=20, pady=10)
@@ -1755,7 +1828,7 @@ class VideoGeneratorGUI:
         """创建飞书异步批量工作流标签页"""
         # 创建可滚动容器，适配小屏幕
         _async_tab_outer = ttk.Frame(self.notebook)
-        self.notebook.add(_async_tab_outer, text="飞书视频批量生成")
+        self.notebook.add(_async_tab_outer, text="③ 飞书视频批量生成")
         _async_canvas = tk.Canvas(_async_tab_outer, highlightthickness=0)
         _async_scrollbar = ttk.Scrollbar(_async_tab_outer, orient="vertical", command=_async_canvas.yview)
         _async_inner = ttk.Frame(_async_canvas)
@@ -1872,7 +1945,21 @@ class VideoGeneratorGUI:
         
         # 不需要任务列表，确保引用安全
         self.async_task_tree = None
-        
+
+        # 日志显示区域
+        log_frame = ttk.LabelFrame(async_frame, text="实时运行日志")
+        log_frame.pack(fill='both', expand=True, padx=20, pady=10)
+
+        # 日志文本区域
+        self.async_log_text = scrolledtext.ScrolledText(log_frame, height=10, width=80)
+        self.async_log_text.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # 日志操作按钮
+        log_button_frame = ttk.Frame(log_frame)
+        log_button_frame.pack(fill='x', padx=10, pady=5)
+
+        ttk.Button(log_button_frame, text="清空日志", command=self.clear_async_log).pack(side='left', padx=5)
+
         # 状态变量
         self.async_workflow = None
         self.async_running = False
@@ -1882,7 +1969,7 @@ class VideoGeneratorGUI:
     def create_notes_collection_tab(self):
         """创建精选笔记批量采集标签页"""
         notes_frame = ttk.Frame(self.notebook)
-        self.notebook.add(notes_frame, text="精选笔记批量采集")
+        self.notebook.add(notes_frame, text="① 精选笔记批量采集")
 
         ttk.Label(notes_frame, text="精选笔记批量采集", font=("Arial", 14, "bold")).pack(pady=10)
 
@@ -1939,6 +2026,57 @@ class VideoGeneratorGUI:
 
         # 初始化配置状态显示
         self.root.after(1000, self.check_notes_collection_config)
+
+    def create_content_rewrite_tab(self):
+        """创建笔记批量二次创作标签页"""
+        rewrite_frame = ttk.Frame(self.notebook)
+        self.notebook.add(rewrite_frame, text="② 笔记批量二次创作")
+
+        ttk.Label(rewrite_frame, text="笔记批量二次创作", font=("Arial", 14, "bold")).pack(pady=10)
+
+        # 操作按钮
+        button_frame = ttk.Frame(rewrite_frame)
+        button_frame.pack(fill='x', padx=20, pady=10)
+
+        self.start_rewrite_btn = ttk.Button(button_frame, text="开始批量二次创作", command=self.start_content_rewrite)
+        self.start_rewrite_btn.pack(side='left', padx=5)
+
+        self.stop_rewrite_btn = ttk.Button(button_frame, text="停止二次创作", command=self.stop_content_rewrite, state='disabled')
+        self.stop_rewrite_btn.pack(side='left', padx=5)
+
+        ttk.Button(button_frame, text="清空日志", command=self.clear_rewrite_log).pack(side='left', padx=5)
+
+        # 进度显示
+        progress_frame = ttk.LabelFrame(rewrite_frame, text="二次创作进度")
+        progress_frame.pack(fill='x', padx=20, pady=10)
+
+        self.rewrite_progress_bar = ttk.Progressbar(progress_frame, length=400, mode='determinate')
+        self.rewrite_progress_bar.pack(padx=10, pady=5)
+
+        self.rewrite_progress_label = ttk.Label(progress_frame, text="准备就绪")
+        self.rewrite_progress_label.pack(pady=5)
+
+        # 统计信息
+        stats_frame = ttk.Frame(progress_frame)
+        stats_frame.pack(pady=5)
+
+        self.rewrite_stats_label = ttk.Label(stats_frame, text="总数: 0 | 成功: 0 | 失败: 0")
+        self.rewrite_stats_label.pack(side='left', padx=20)
+
+        # 日志显示
+        log_frame = ttk.LabelFrame(rewrite_frame, text="二次创作日志")
+        log_frame.pack(fill='both', expand=True, padx=20, pady=10)
+
+        self.rewrite_log_text = scrolledtext.ScrolledText(log_frame, height=8, width=80)
+        self.rewrite_log_text.pack(fill='both', expand=True, padx=10, pady=10)
+
+        # 状态变量
+        self.content_rewrite_collector = None
+        self.content_rewrite_thread = None
+        self.content_rewrite_running = False
+
+        # 初始化配置状态显示
+        self.root.after(1000, self.check_content_rewrite_config)
 
     def create_manual_tab(self):
         """创建手动生成标签页"""
@@ -2153,7 +2291,8 @@ class VideoGeneratorGUI:
         self.config['coze'] = {
             'bearer_token': self.coze_token_entry.get(),
             'workflow_id': self.coze_workflow_id_entry.get(),
-            'notes_workflow_id': getattr(self, 'coze_notes_workflow_id_entry', type('', (), {'get': lambda: ''})).get()
+            'notes_workflow_id': getattr(self, 'coze_notes_workflow_id_entry', type('', (), {'get': lambda: ''})).get(),
+            'content_workflow_id': getattr(self, 'coze_content_workflow_id_entry', type('', (), {'get': lambda: ''})).get()
         }
         # 统一的飞书配置 - 包含所有飞书相关配置
         self.config['feishu'] = {
@@ -2218,6 +2357,8 @@ class VideoGeneratorGUI:
             self.coze_workflow_id_entry.insert(0, self.config['coze'].get('workflow_id', ''))
             if hasattr(self, 'coze_notes_workflow_id_entry'):
                 self.coze_notes_workflow_id_entry.insert(0, self.config['coze'].get('notes_workflow_id', ''))
+            if hasattr(self, 'coze_content_workflow_id_entry'):
+                self.coze_content_workflow_id_entry.insert(0, self.config['coze'].get('content_workflow_id', ''))
         
         # 加载统一的飞书配置
         if 'feishu' in self.config:
@@ -3140,9 +3281,16 @@ class VideoGeneratorGUI:
         timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         session_info = f"[会话:{self.current_session_id}]" if self.current_session_id else "[系统]"
         log_entry = f"[{timestamp}] {session_info} {message}\n"
-        
-        self.log_text.insert(tk.END, log_entry)
-        self.log_text.see(tk.END)
+
+        # 如果GUI还没有初始化，使用临时日志
+        if not hasattr(self, 'log_text') or not self.log_text:
+            if not hasattr(self, 'temp_logs'):
+                self.temp_logs = []
+            self.temp_logs.append(log_entry.strip())
+            print(log_entry.strip())  # 同时输出到控制台
+        else:
+            self.log_text.insert(tk.END, log_entry)
+            self.log_text.see(tk.END)
         
         # 存储到当前会话日志
         if self.current_session_id:
@@ -3414,6 +3562,7 @@ class VideoGeneratorGUI:
         """开始飞书异步批量处理"""
         def run_async_batch():
             try:
+                self.async_log_message("开始飞书异步批量处理...")
                 self.log_message("开始飞书异步批量处理...")
                 
                 # 检查配置
@@ -3434,8 +3583,8 @@ class VideoGeneratorGUI:
                 # 构建配置
                 config = self.build_feishu_async_config()
                 
-                # 创建工作流实例
-                self.async_workflow = FeishuAsyncBatchWorkflow(config)
+                # 创建工作流实例（传递日志回调函数）
+                self.async_workflow = FeishuAsyncBatchWorkflow(config, log_callback=self.async_log_message)
                 self.async_running = True
                 
                 # 获取过滤条件
@@ -3514,12 +3663,16 @@ class VideoGeneratorGUI:
         if not self.async_running:
             messagebox.showwarning("提示", "当前没有运行中的异步批量处理任务")
             return
-        
+
+        self.async_log_message("正在停止飞书异步批量处理...")
+        self.log_message("正在停止飞书异步批量处理...")
+
         self.async_running = False
         self.reset_progress_bar_style()
         self.async_progress_bar.config({'value': 0})
         self.stop_task_status_monitor()
         self.update_async_progress("已停止处理")
+        self.async_log_message("飞书异步批量处理已停止")
         self.log_message("用户停止了飞书异步批量处理")
         messagebox.showinfo("提示", "已停止异步批量处理")
     
@@ -4224,11 +4377,11 @@ class VideoGeneratorGUI:
             config_status.append("✗ Coze工作流ID: 未配置 (请在配置管理中设置 coze.notes_workflow_id)")
             config_ready = False
 
-        # 更新配置状态显示
-        self.config_status_text.config(state='normal')
-        self.config_status_text.delete(1.0, tk.END)
-        self.config_status_text.insert(tk.END, '\n'.join(config_status))
-        self.config_status_text.config(state='disabled')
+        # 更新配置状态显示（暂时跳过，因为 config_status_text 已被注释掉）
+        # self.config_status_text.config(state='normal')
+        # self.config_status_text.delete(1.0, tk.END)
+        # self.config_status_text.insert(tk.END, '\n'.join(config_status))
+        # self.config_status_text.config(state='disabled')
 
         # 更新按钮状态
         if config_ready:
@@ -4237,6 +4390,51 @@ class VideoGeneratorGUI:
         else:
             self.start_collection_btn.config(state='disabled')
             self.notes_progress_label.config(text="配置不完整，请检查配置")
+
+        return config_ready
+
+    def check_content_rewrite_config(self):
+        """检查内容二次创作配置"""
+        config_ready = True
+        config_status = []
+
+        # 检查飞书配置
+        feishu_app_token = self.get_feishu_config('app_token', '')
+        if feishu_app_token:
+            config_status.append("✓ 飞书App Token: 已配置")
+        else:
+            config_status.append("✗ 飞书App Token: 未配置 (请在配置管理中设置飞书配置)")
+            config_ready = False
+
+        feishu_table_id = self.get_feishu_config('content_table_id', '')
+        if feishu_table_id:
+            config_status.append(f"✓ 内容表ID: {feishu_table_id}")
+        else:
+            config_status.append("✗ 内容表ID: 未配置 (请在配置管理中设置飞书配置)")
+            config_ready = False
+
+        # 检查Coze配置
+        coze_token = self.config.get('coze', {}).get('bearer_token', '')
+        if coze_token:
+            config_status.append("✓ Coze Token: 已配置")
+        else:
+            config_status.append("✗ Coze Token: 未配置 (请在配置管理中设置 coze.bearer_token)")
+            config_ready = False
+
+        coze_workflow_id = self.config.get('coze', {}).get('content_workflow_id', '')
+        if coze_workflow_id:
+            config_status.append(f"✓ 内容二次创作工作流ID: {coze_workflow_id}")
+        else:
+            config_status.append("✗ 内容二次创作工作流ID: 未配置 (请在配置管理中设置 coze.content_workflow_id)")
+            config_ready = False
+
+        # 更新按钮状态
+        if config_ready:
+            self.start_rewrite_btn.config(state='normal')
+            self.rewrite_progress_label.config(text="配置已就绪，可以开始二次创作")
+        else:
+            self.start_rewrite_btn.config(state='disabled')
+            self.rewrite_progress_label.config(text="配置不完整，请检查配置")
 
         return config_ready
 
@@ -4387,6 +4585,267 @@ class VideoGeneratorGUI:
         self.notes_log_text.delete(1.0, tk.END)
         self.notes_log_message("日志已清空")
 
+    def start_content_rewrite(self):
+        """开始批量二次创作"""
+        # 从配置系统获取参数
+        feishu_app_token = self.get_feishu_config('app_token', '')
+        feishu_table_id = self.get_feishu_config('content_table_id', '')  # 使用内容表
+        coze_token = self.config.get('coze', {}).get('bearer_token', '')
+        coze_workflow_id = self.config.get('coze', {}).get('content_workflow_id', '')  # 需要配置内容二次创作工作流ID
+
+        # 验证必填参数
+        if not feishu_app_token:
+            messagebox.showerror("错误", "飞书App Token未配置，请在配置管理中设置飞书配置")
+            return
+        if not feishu_table_id:
+            messagebox.showerror("错误", "内容表ID未配置，请在配置管理中设置飞书配置")
+            return
+        if not coze_token:
+            messagebox.showerror("错误", "Coze Token未配置，请在配置管理中设置 coze.bearer_token")
+            return
+        if not coze_workflow_id:
+            messagebox.showerror("错误", "内容二次创作工作流ID未配置，请在配置管理中设置 coze.content_workflow_id")
+            return
+
+        # 如果已经在运行，先停止
+        if self.content_rewrite_running:
+            self.stop_content_rewrite()
+
+        # 初始化收集器（传递日志回调函数）
+        self.content_rewrite_collector = ContentRewriteProcessor(self.config, log_callback=self.rewrite_log_message)
+
+        # 准备参数
+        params = {
+            'feishu_app_token': feishu_app_token,
+            'feishu_table_id': feishu_table_id,
+            'feishu_view_id': self.get_feishu_config('content_view_id', ''),
+            'coze_token': coze_token,
+            'coze_workflow_id': coze_workflow_id
+        }
+
+        # 创建并启动二次创作线程
+        self.content_rewrite_thread = ContentRewriteThread(
+            self.content_rewrite_collector,
+            params,
+            callback=self.content_rewrite_callback
+        )
+
+        self.content_rewrite_running = True
+        self.content_rewrite_thread.start()
+
+        # 更新UI状态
+        self.start_rewrite_btn.config(state='disabled')
+        self.stop_rewrite_btn.config(state='normal')
+        self.rewrite_progress_bar['value'] = 0
+        self.rewrite_progress_label.config(text="正在初始化...")
+        self.rewrite_stats_label.config(text="总数: 0 | 成功: 0 | 失败: 0")
+        self.rewrite_log_message("开始批量二次创作...")
+
+    def stop_content_rewrite(self):
+        """停止批量二次创作"""
+        if self.content_rewrite_thread and self.content_rewrite_thread.is_running:
+            self.content_rewrite_thread.stop()
+            self.rewrite_log_message("正在停止二次创作...")
+
+        self.content_rewrite_running = False
+        self.start_rewrite_btn.config(state='normal')
+        self.stop_rewrite_btn.config(state='disabled')
+        self.rewrite_progress_label.config(text="二次创作已停止")
+
+    def content_rewrite_callback(self, result):
+        """内容二次创作回调函数"""
+        if isinstance(result, dict) and result.get('type') == 'progress':
+            # 进度更新
+            self.root.after(0, self.update_rewrite_progress, result['message'], result['progress'])
+        else:
+            # 最终结果
+            self.root.after(0, self.content_rewrite_completed, result)
+
+    def update_rewrite_progress(self, message, progress):
+        """更新二次创作进度"""
+        self.rewrite_progress_bar['value'] = progress
+        self.rewrite_progress_label.config(text=message)
+
+        if hasattr(self, 'content_rewrite_thread') and self.content_rewrite_thread:
+            # 更新统计信息
+            results = self.content_rewrite_thread.results
+            if results:
+                stats_text = f"总数: {results.get('total', 0)} | 成功: {results.get('success', 0)} | 失败: {results.get('failed', 0)}"
+                self.rewrite_stats_label.config(text=stats_text)
+
+    def content_rewrite_completed(self, results):
+        """二次创作完成处理"""
+        self.content_rewrite_running = False
+        self.start_rewrite_btn.config(state='normal')
+        self.stop_rewrite_btn.config(state='disabled')
+
+        if results:
+            # 显示最终统计
+            total = results.get('total', 0)
+            success = results.get('success', 0)
+            failed = results.get('failed', 0)
+            errors = results.get('errors', [])
+
+            stats_text = f"总数: {total} | 成功: {success} | 失败: {failed}"
+            self.rewrite_stats_label.config(text=stats_text)
+            self.rewrite_progress_label.config(text="二次创作完成")
+            self.rewrite_progress_bar['value'] = 100
+
+            # 记录结果
+            self.rewrite_log_message(f"二次创作完成! 总数: {total}, 成功: {success}, 失败: {failed}")
+
+            # 显示错误信息
+            if errors:
+                self.rewrite_log_message(f"错误信息:")
+                for error in errors[:10]:  # 只显示前10个错误
+                    self.rewrite_log_message(f"  - {error}")
+                if len(errors) > 10:
+                    self.rewrite_log_message(f"  ... 还有 {len(errors) - 10} 个错误")
+
+            # 显示处理时间
+            start_time = results.get('start_time')
+            end_time = results.get('end_time')
+            if start_time and end_time:
+                duration = end_time - start_time
+                duration_seconds = duration.total_seconds()
+                self.rewrite_log_message(f"处理耗时: {duration_seconds:.1f} 秒")
+
+    def rewrite_log_message(self, message):
+        """记录二次创作日志"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
+        self.rewrite_log_text.insert(tk.END, log_entry)
+        self.rewrite_log_text.see(tk.END)
+
+        # 同时记录到主日志
+        if hasattr(self, 'log_message'):
+            self.log_message(f"[内容二次创作] {message}")
+
+    def clear_rewrite_log(self):
+        """清空二次创作日志"""
+        self.rewrite_log_text.delete(1.0, tk.END)
+        self.rewrite_log_message("日志已清空")
+
+    def async_log_message(self, message):
+        """记录飞书异步批量处理日志"""
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        log_entry = f"[{timestamp}] {message}\n"
+        self.async_log_text.insert(tk.END, log_entry)
+        self.async_log_text.see(tk.END)
+
+        # 同时记录到主日志
+        if hasattr(self, 'log_message'):
+            self.log_message(f"[飞书批量生成] {message}")
+
+    def clear_async_log(self):
+        """清空飞书异步批量处理日志"""
+        self.async_log_text.delete(1.0, tk.END)
+        self.async_log_message("日志已清空")
+
+    def create_default_configs(self, config_dir: str):
+        """创建默认配置文件"""
+        import json
+
+        # 确保config目录存在
+        if not os.path.exists(config_dir):
+            os.makedirs(config_dir, exist_ok=True)
+
+        # 创建默认config.json
+        default_config = {
+            "coze": {
+                "bearer_token": "",
+                "workflow_id": "",
+                "notes_workflow_id": "",
+                "content_workflow_id": ""
+            },
+            "feishu": {
+                "app_id": "",
+                "app_secret": "",
+                "app_token": "",
+                "content_table_id": "",
+                "content_view_id": "",
+                "account_table_id": "",
+                "voice_table_id": "",
+                "digital_table_id": "",
+                "digital_view_id": "",
+                "notes_table_id": "",
+                "notes_view_id": "",
+                "note_link_field": "分享链接"
+            },
+            "volcengine": {
+                "appid": "",
+                "access_token": ""
+            },
+            "doubao": {
+                "token": ""
+            },
+            "jianying": {
+                "draft_folder_path": ""
+            },
+            "concurrent": {
+                "max_coze_concurrent": 3,
+                "max_synthesis_workers": 1,
+                "poll_interval": 30
+            },
+            "tools": {
+                "ffmpeg_path": ""
+            },
+            "audio": {
+                "bgm_path": ""
+            },
+            "proxy": {
+                "http_proxy": "",
+                "https_proxy": "",
+                "no_proxy": ""
+            },
+            "template": {
+                "active": ""
+            }
+        }
+
+        # 创建默认workflows.json
+        default_workflows = {
+            "feishu_async_default": {
+                "id": "feishu_async_default",
+                "name": "飞书视频批量生成",
+                "type": "feishu_async_batch",
+                "created_at": datetime.now().isoformat()
+            }
+        }
+
+        # 创建其他默认配置文件
+        default_schedules = {}
+        default_templates = {}
+
+        # 写入配置文件
+        config_files = {
+            "config.json": default_config,
+            "workflows.json": default_workflows,
+            "schedules.json": default_schedules,
+            "templates.json": default_templates
+        }
+
+        for filename, data in config_files.items():
+            file_path = os.path.join(config_dir, filename)
+            with open(file_path, 'w', encoding='utf-8') as f:
+                json.dump(data, f, ensure_ascii=False, indent=2)
+
+        print(f"已创建默认配置文件到: {config_dir}")
+
+    def cleanup_temp_files(self):
+        """清理临时文件"""
+        if hasattr(self, 'temp_project_root') and self.temp_project_root:
+            import shutil
+            try:
+                shutil.rmtree(self.temp_project_root)
+                print(f"已清理临时目录: {self.temp_project_root}")
+            except Exception as e:
+                print(f"清理临时目录失败: {e}")
+
+    def __del__(self):
+        """析构函数，清理临时文件"""
+        self.cleanup_temp_files()
+
 
 class FeishuClient:
     """飞书客户端"""
@@ -4507,6 +4966,19 @@ def main():
     """主函数"""
     root = tk.Tk()
     app = VideoGeneratorGUI(root)
+
+    # 添加窗口关闭事件处理
+    def on_closing():
+        """窗口关闭时的处理"""
+        try:
+            # 清理临时文件
+            app.cleanup_temp_files()
+        except Exception as e:
+            print(f"清理临时文件时出错: {e}")
+        finally:
+            root.destroy()
+
+    root.protocol("WM_DELETE_WINDOW", on_closing)
     root.mainloop()
 
 

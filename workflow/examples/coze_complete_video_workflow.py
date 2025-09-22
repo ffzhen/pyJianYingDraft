@@ -330,7 +330,7 @@ class CozeVideoWorkflow:
                 'digital_video_url': actual_data.get('videoUrl', ''),  # 修正参数名映射
                 'recordId': actual_data.get('recordId', ''),
                 'tableId': actual_data.get('tableId', ''),
-                'account_id': actual_data.get('account_id', ''),  # 添加账号ID用于动态封面
+                'account_id':self.task_config.get('account_id', ''),  # 添加账号ID用于动态封面
                 
                 # 火山引擎ASR配置
                 'volcengine_appid': '6046310832',
@@ -344,7 +344,7 @@ class CozeVideoWorkflow:
                 # 背景音乐配置（如果已设置）
                 'background_music_path': 'resource/华尔兹.mp3',
                 'background_music_volume': self.background_music_volume,
-
+                
                 'cover_short_title':actual_data.get('shortTitle', ''),
                 # 不设置cover_image_path，让process_workflow使用模板配置中的cover_background
                 'cover_bottom_text':actual_data.get('wrapTitle', ''),

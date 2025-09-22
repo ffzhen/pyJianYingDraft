@@ -482,7 +482,15 @@ class VideoEditingWorkflow:
             payload = {
                 "model": self.volcengine_asr.doubao_model,
                 "messages": [
-                    {"role": "system", "content": "You are a professional subtitle translator. Translate Chinese text to English for video subtitles. Requirements: 1. Keep it concise and clear 2. Use simple, natural English 3. Maintain the original meaning 4. No explanations, no additional text, no Chinese characters 5. Return ONLY the English translation"},
+                    {"role": "system", "content": (
+                        "You are a professional subtitle translator."
+                        " Translate ONLY the user's Chinese into clean, natural English suitable for on-screen subtitles."
+                        " STRICT RULES:"
+                        " - Output must contain ONLY the English translation."
+                        " - Do NOT add labels, notes, explanations, or any non-English characters."
+                        " - Keep it concise and readable for subtitles."
+                        " - No quotes, no prefixes like Translation:, Result:, Meaning:, etc."
+                    )},
                     {"role": "user", "content": chinese_text}
                 ],
                 "max_tokens": 200,  # 减少token数量，确保简洁
@@ -501,47 +509,43 @@ class VideoEditingWorkflow:
             
             if resp.status_code == 200:
                 content = resp.json().get('choices', [{}])[0].get('message', {}).get('content', '').strip()
-                
-                # 清理翻译结果，确保只返回纯英文
+
+                # 严格清理：仅保留纯净英文字幕
                 import re
-                # 移除中文字符和中文标点符号
-                english_only = re.sub(r'[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', '', content)
-                # 移除常见的解释性词汇和短语（包括冒号前的部分）
-                english_only = re.sub(r'\b(translation|translated|meaning|explanation|note|note:|说明|翻译|意思是|翻译结果|结果|内容)\b\s*:?\s*', '', english_only, flags=re.IGNORECASE)
-                # 移除冒号后的解释内容
-                english_only = re.sub(r':\s*[^.!?]*', '', english_only)
-                # 移除重复的句子（如果出现相同内容两次）
-                sentences = english_only.split('.')
-                unique_sentences = []
-                for sentence in sentences:
-                    sentence = sentence.strip()
-                    if sentence and sentence not in unique_sentences:
-                        # 进一步检查是否包含重复的短语
-                        words = sentence.split()
-                        if len(words) > 3:  # 只对较长的句子进行重复检查
-                            # 检查是否包含重复的短语（3个词以上）
-                            has_repeat = False
-                            for i in range(len(words) - 2):
-                                phrase = ' '.join(words[i:i+3])
-                                if sentence.count(phrase) > 1:
-                                    has_repeat = True
-                                    break
-                            if not has_repeat:
-                                unique_sentences.append(sentence)
-                        else:
-                            unique_sentences.append(sentence)
-                english_only = '. '.join(unique_sentences)
-                # 移除多余的空格、换行
-                english_only = re.sub(r'\s+', ' ', english_only).strip()
-                # 确保句子以标点符号结尾
-                if english_only and not re.search(r'[.!?]$', english_only):
-                    english_only += '.'
-                
-                # 如果翻译结果为空或太短，返回原文本
+
+                def clean_english(text: str) -> str:
+                    # 去除中文字符和中文标点
+                    t = re.sub(r'[\u4e00-\u9fff\u3000-\u303f\uff00-\uffef]', '', text)
+                    # 去除常见解释性标签及其后紧随的冒号（大小写不敏感）
+                    t = re.sub(r'\b(translation|translated|translate|meaning|explanation|explain|note|result|answer|output|content)\b\s*:?', '', t, flags=re.IGNORECASE)
+                    # 去除括号内的说明性内容（如果包含非ASCII或中文痕迹）
+                    t = re.sub(r'\((?:[^\x00-\x7F]|[^)]{0,20})\)', '', t)
+                    t = re.sub(r'\[(?:[^\x00-\x7F]|[^\]]{0,20})\]', '', t)
+                    # 仅保留英文字母、数字、基本标点与空白
+                    t = re.sub(r"[^A-Za-z0-9 ,.\-:'\"!?;\n]", '', t)
+                    # 合并多余空白
+                    t = re.sub(r'\s+', ' ', t).strip()
+                    # 消除重复短语导致的重复句子
+                    parts = re.split(r'(?<=[.!?])\s+', t)
+                    seen = set()
+                    uniq = []
+                    for p in parts:
+                        p_norm = p.lower()
+                        if p_norm and p_norm not in seen:
+                            seen.add(p_norm)
+                            uniq.append(p)
+                    t = ' '.join(uniq).strip()
+                    # 移除开头和结尾可能出现的引号
+                    t = t.strip('"\'')
+                    return t
+
+                english_only = clean_english(content)
+
+                # 结果过短或为空则放弃
                 if not english_only or len(english_only) < 2:
                     print(f"[WARN] 翻译结果为空，跳过: '{chinese_text}'")
                     return ""
-                
+
                 print(f"[DEBUG] 翻译: '{chinese_text}' -> '{english_only}'")
                 return english_only
             else:
@@ -590,7 +594,7 @@ class VideoEditingWorkflow:
                     "messages": [
                         {"role": "system", "content": (
                             "你是文案排版助手。请把给定中文标题合理断句为3行，如果内容不够可以适当扩充，整体还是简明扼要，；例如：买房字\n到底该怎么买\n过来人说句真话" \
-                            "每行尽量语义完整、有真人感、激发用户情绪。只返回三行内容，用\n分隔，不要额外说明。"
+                            "每行尽量语义完整、有真人感、激发用户情绪。只返回三行内容，每行不要超过8个汉字，用\n分隔，不要额外说明。"
                         )},
                         {"role": "user", "content": f"标题：{title}\n输出3行："}
                     ],
@@ -684,7 +688,7 @@ class VideoEditingWorkflow:
                     "messages": [
                         {"role": "system", "content": (
                             "你是文案排版助手。请把给定中文标题合理断句为2行，如果内容不够可以适当扩充，整体还是简明扼要；例如：买房子该怎么买\n     一定要牢记" \
-                            "每行尽量语义完整、有真人感、激发用户情绪。只返回两行内容，用\n分隔，不要额外说明。"
+                            "每行尽量语义完整、有真人感、激发用户情绪。只返回两行内容，每行不要超过8个汉字，用\n分隔，不要额外说明。"
                         )},
                         {"role": "user", "content": f"标题：{title}\n输出2行："}
                     ],
@@ -2437,7 +2441,12 @@ class VideoEditingWorkflow:
             )
         
         
-        # 6. 保存草稿
+        # 6. 对齐所有轨道结束到主轴（数字人视频）结束，并保存草稿
+        try:
+            self._align_all_tracks_with_main_track(effective_offset)
+        except Exception as e:
+            print(f"[WARN] 轨道对齐时出现问题: {e}")
+
         self.script.save()
         
         # 计算执行时间并保存日志摘要
@@ -2463,6 +2472,128 @@ class VideoEditingWorkflow:
             self.logger.error(f"保存工作流摘要时出错: {e}")
         
         return self.script.save_path
+
+    def _align_all_tracks_with_main_track(self, time_offset: float = 0.0):
+        """确保所有轨道的片段不超过主轴，并将最后结束时间与数字人视频结束时间一致。
+
+        规则:
+        - 任何片段若超出主轴结束时间则截断到主轴结束。
+        - 文本与背景类轨道若最后片段早于主轴结束，则延长到主轴结束。
+        - 音频轨道不做延长（避免越过素材时长或引入静音问题）。
+        """
+        if not self.script:
+            print("[WARN] 草稿不存在，跳过轨道对齐处理")
+            return
+
+        main_track_duration = self.get_effective_video_duration()
+        if main_track_duration <= 0:
+            print("[WARN] 主轴时长无效，跳过轨道对齐处理")
+            return
+
+        main_start = time_offset
+        main_end = time_offset + main_track_duration
+
+        print(f"[TRACK_ALIGNMENT] 主轴时间范围: {main_start:.6f}s - {main_end:.6f}s (时长: {main_track_duration:.6f}s)")
+
+        # 需要检查与对齐的轨道
+        tracks_to_check = [
+            "音频轨道",
+            "背景音乐轨道",
+            "内容字幕轨道",
+            "标题字幕轨道",
+            "内容字幕背景",
+            "标题字幕背景",
+            "主视频轨道"
+        ]
+
+        for track_name in tracks_to_check:
+            try:
+                if track_name not in self.script.tracks:
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 轨道不存在，跳过")
+                    continue
+
+                track = self.script.tracks[track_name]
+                if not hasattr(track, 'segments') or not track.segments:
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 无片段，跳过")
+                    continue
+
+                # 先裁剪所有越界片段
+                for segment in list(track.segments):
+                    # 安全检查：确保segment有time_range属性
+                    if not hasattr(segment, 'time_range'):
+                        print(f"[TRACK_ALIGNMENT] {track_name}: 片段没有time_range属性，跳过")
+                        continue
+
+                    current_start = segment.time_range.start / 1000000.0
+                    current_duration = segment.time_range.duration / 1000000.0
+                    current_end = current_start + current_duration
+
+                    # 完全在主轴之外，移除
+                    if current_end <= main_start or current_start >= main_end:
+                        print(f"[TRACK_ALIGNMENT] {track_name}: 片段完全越界，移除 {current_start:.6f}-{current_end:.6f}s")
+                        try:
+                            track.segments.remove(segment)
+                        except Exception:
+                            pass
+                        continue
+
+                    # 开始早于主轴 -> 对齐到主轴开始
+                    new_start = max(current_start, main_start)
+                    # 结束晚于主轴 -> 对齐到主轴结束
+                    new_end = min(current_end, main_end)
+                    if new_end < new_start:
+                        new_end = new_start
+
+                    if abs(new_start - current_start) > 1e-6 or abs(new_end - current_end) > 1e-6:
+                        new_duration = max(0.0, new_end - new_start)
+                        segment.time_range = draft.trange(
+                            draft.tim(f"{new_start:.9f}s"),
+                            draft.tim(f"{new_duration:.9f}s")
+                        )
+                        print(f"[TRACK_ALIGNMENT] {track_name}: 裁剪 {current_start:.6f}-{current_end:.6f}s -> {new_start:.6f}-{new_end:.6f}s")
+
+                # 再将最后一个片段结束对齐到主轴结束
+                if not track.segments:
+                    continue
+
+                # 找到结束最晚的片段（过滤掉没有time_range的片段）
+                valid_segments = [seg for seg in track.segments if hasattr(seg, 'time_range')]
+                if not valid_segments:
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 没有有效的片段，跳过")
+                    continue
+
+                last_seg = max(
+                    valid_segments,
+                    key=lambda seg: (seg.time_range.start + seg.time_range.duration)
+                )
+                last_start = last_seg.time_range.start / 1000000.0
+                last_dur = last_seg.time_range.duration / 1000000.0
+                last_end = last_start + last_dur
+
+                # 若末端早于主轴结束，按类型决定是否延长
+                is_audio_track = (track_name in ["音频轨道", "背景音乐轨道"]) or (
+                    hasattr(track, 'track_type') and str(getattr(track, 'track_type'))
+                    .lower().find('audio') >= 0
+                )
+
+                if last_end < main_end and not is_audio_track:
+                    new_duration = max(0.0, main_end - last_start)
+                    last_seg.time_range = draft.trange(
+                        draft.tim(f"{last_start:.9f}s"),
+                        draft.tim(f"{new_duration:.9f}s")
+                    )
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 扩展末段到主轴结束 {last_start:.6f}-{main_end:.6f}s")
+                elif last_end > main_end:
+                    # 保险：若仍超过则裁剪
+                    new_duration = max(0.0, main_end - last_start)
+                    last_seg.time_range = draft.trange(
+                        draft.tim(f"{last_start:.9f}s"),
+                        draft.tim(f"{new_duration:.9f}s")
+                    )
+                    print(f"[TRACK_ALIGNMENT] {track_name}: 截断末段到主轴结束 {last_start:.6f}-{main_end:.6f}s")
+
+            except Exception as e:
+                print(f"[ERROR] 调整轨道 {track_name} 时出错: {e}")
     
     def _process_video_pauses_by_segments_marking(self, input_video_path: str, pause_segments: List[Tuple[float, float]], time_offset: float = 0.0) -> bool:
         """使用片段标记方式处理停顿（非破坏性编辑，不切割原视频）
@@ -3191,8 +3322,8 @@ class VideoEditingWorkflow:
                 first_part = text_parts[0].strip()
                 second_part = text_parts[1].strip() if len(text_parts) > 1 else ""
                 
-                # 组合文本：第一段 + 空格 + 第二段（移除换行符）
-                combined_text = first_part + " " + second_part if second_part else first_part
+                # 组合文本：第一段 + 换行符 + 空格 + 第二段
+                combined_text = first_part + "\n      " + second_part if second_part else first_part
                 
                 # 创建富文本样式
                 highlight_ranges = []
@@ -3468,6 +3599,11 @@ def main():
                     segments_adjusted = 0
                     
                     for segment in track.segments:
+                        # 安全检查：确保segment有time_range属性
+                        if not hasattr(segment, 'time_range'):
+                            print(f"[TRACK_ALIGNMENT] {track_name}: 片段没有time_range属性，跳过")
+                            continue
+
                         # 获取片段的当前时间范围
                         current_start = segment.time_range.start / 1000000  # 转换为秒
                         current_duration = segment.time_range.duration / 1000000  # 转换为秒

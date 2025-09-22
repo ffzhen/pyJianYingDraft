@@ -28,11 +28,12 @@ from workflow.async_coze_processor import AsyncCozeProcessor, AsyncCozeTask
 class FeishuAsyncBatchWorkflow:
     """飞书异步批量工作流处理器"""
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: Dict[str, Any], log_callback=None):
         """初始化飞书异步批量工作流
-        
+
         Args:
             config: 配置字典，包含飞书API、Coze API等配置
+            log_callback: 日志回调函数
         """
         self.config = config
         
@@ -57,7 +58,10 @@ class FeishuAsyncBatchWorkflow:
         self.max_coze_concurrent = self.workflow_config.get('max_coze_concurrent', 16)
         self.max_synthesis_workers = self.workflow_config.get('max_synthesis_workers', 4)
         self.poll_interval = self.workflow_config.get('poll_interval', 30)
-        
+
+        # 日志回调
+        self.log_callback = log_callback
+
         # 初始化飞书客户端
         self.feishu_task_source = None
         
@@ -65,16 +69,23 @@ class FeishuAsyncBatchWorkflow:
         self.async_processor = None
         self._init_async_processor()
         
-        print(f"🚀 飞书异步批量工作流已初始化")
-        print(f"   Coze并发数: {self.max_coze_concurrent}")
-        print(f"   合成并发数: {self.max_synthesis_workers}")
-    
+        self.log_message(f"🚀 飞书异步批量工作流已初始化")
+        self.log_message(f"   Coze并发数: {self.max_coze_concurrent}")
+        self.log_message(f"   合成并发数: {self.max_synthesis_workers}")
+
+    def log_message(self, message: str):
+        """记录日志消息"""
+        if self.log_callback:
+            self.log_callback(message)
+        else:
+            print(message)
+
     def _init_feishu_client(self) -> None:
         """初始化飞书客户端"""
         if self.feishu_task_source:
             return
             
-        print(f"📡 初始化飞书客户端...")
+        self.log_message(f"📡 初始化飞书客户端...")
         
         # 从content_table配置中提取table_id和field_mapping
         content_table_config = self.tables_config.get('content_table', {})
@@ -92,14 +103,14 @@ class FeishuAsyncBatchWorkflow:
             digital_human_table_config=self.tables_config.get('digital_human_table')
         )
         
-        print(f"✅ 飞书客户端初始化完成")
+        self.log_message(f"✅ 飞书客户端初始化完成")
     
     def _init_async_processor(self) -> None:
         """初始化异步处理器"""
         if self.async_processor:
             return
             
-        print(f"⚡ 初始化异步Coze处理器...")
+        self.log_message(f"⚡ 初始化异步Coze处理器...")
         
         self.async_processor = AsyncCozeProcessor(
             draft_folder_path=self.draft_folder_path,
@@ -108,7 +119,8 @@ class FeishuAsyncBatchWorkflow:
             max_coze_concurrent=self.max_coze_concurrent,
             max_synthesis_workers=self.max_synthesis_workers,
             poll_interval=self.poll_interval,
-            template_config=self.template_config
+            template_config=self.template_config,
+            log_callback=self.log_message
         )
         
         # 设置回调函数
@@ -116,19 +128,19 @@ class FeishuAsyncBatchWorkflow:
         self.async_processor.on_task_failed = self._on_task_failed
         self.async_processor.on_batch_finished = self._on_batch_finished
         
-        print(f"✅ 异步处理器初始化完成")
+        self.log_message(f"✅ 异步处理器初始化完成")
     
     def _on_task_completed(self, task: AsyncCozeTask) -> None:
         """任务完成回调"""
-        print(f"🎉 任务完成: {task.task_id} - {task.title}")
-        print(f"   视频路径: {task.video_path}")
+        self.log_message(f"🎉 任务完成: {task.task_id} - {task.title}")
+        self.log_message(f"   视频路径: {task.video_path}")
         
         # 更新飞书状态
         self._update_feishu_status(task, "视频草稿生成完成", task.video_path)
     
     def _on_task_failed(self, task: AsyncCozeTask, error: str) -> None:
         """任务失败回调"""
-        print(f"❌ 任务失败: {task.task_id} - {error}")
+        self.log_message(f"❌ 任务失败: {task.task_id} - {error}")
         
         # 更新飞书状态
         self._update_feishu_status(task, "处理失败", error_message=error)
@@ -136,25 +148,37 @@ class FeishuAsyncBatchWorkflow:
     def _on_batch_finished(self, stats: Dict) -> None:
         """批量处理完成回调"""
         total_time = stats.get('end_time') - stats.get('start_time')
-        print(f"🏁 批量处理完成!")
-        print(f"   总耗时: {total_time}")
+        self.log_message(f"🏁 批量处理完成!")
+        self.log_message(f"   总耗时: {total_time}")
         
         # 发送完成通知或执行其他收尾工作
     
     def load_tasks_from_feishu(self, filter_condition: Optional[Dict] = None) -> List[Dict[str, Any]]:
         """从飞书加载任务数据"""
         self._init_feishu_client()
-        
+
         print(f"📋 从飞书多维表格加载任务...")
-        
-        # 获取过滤条件
-        actual_filter = filter_condition or self.tables_config.get('content_table', {}).get('filter_condition')
-        
+
+        # 内置过滤条件：只获取状态为"视频草稿生成"的记录
+        built_in_filter = {
+            "conjunction": "and",
+            "conditions": [
+                {
+                    "field_name": "状态",
+                    "operator": "is",
+                    "value": ["视频草稿生成"]
+                }
+            ]
+        }
+
+        # 如果传入了filter_condition参数，则使用它；否则使用内置过滤条件
+        actual_filter = filter_condition or built_in_filter
+
         # 加载任务
         tasks = self.feishu_task_source.get_tasks(actual_filter)
-        
+
         print(f"✅ 从飞书加载了 {len(tasks)} 个任务")
-        
+
         return tasks
     
     def convert_feishu_tasks_to_coze_tasks(self, feishu_tasks: List[Dict[str, Any]]) -> List[Dict[str, str]]:
@@ -170,7 +194,7 @@ class FeishuAsyncBatchWorkflow:
             project_name = task.get('project_name', f'项目_{i}')
             digital_no = task.get('digital_no', 'default_digital')
             voice_id = task.get('voice_id', 'default_voice')
-            account = task.get('account', '')
+            account_id = task.get('account_id', '')  # 使用正确的字段名
             
             if not content:
                 print(f"⚠️ 跳过空内容任务: {task_id}")
@@ -187,7 +211,7 @@ class FeishuAsyncBatchWorkflow:
                 'project_name': project_name,
                 'digital_no': digital_no,
                 'voice_id': voice_id,
-                'account': account,
+                'account_id': account_id,  # 使用正确的字段名
                 'record_id': feishu_record_id,  # 使用飞书记录ID
                 'original_task': task  # 保留原始任务数据
             }
@@ -248,26 +272,25 @@ class FeishuAsyncBatchWorkflow:
             import traceback
             traceback.print_exc()
     
-    def process_async_batch(self, 
-                           filter_condition: Optional[Dict] = None,
+    def process_async_batch(self,
                            include_ids: List[str] = None,
                            exclude_ids: List[str] = None,
-                           save_results: bool = True) -> Dict[str, Any]:
+                           save_results: bool = True,
+                           filter_condition: Optional[Dict] = None) -> Dict[str, Any]:
         """异步批量处理飞书任务
-        
+
         Args:
-            filter_condition: 过滤条件
             include_ids: 包含的任务ID列表
             exclude_ids: 排除的任务ID列表
             save_results: 是否保存结果
-            
+
         Returns:
             处理结果统计
         """
         print(f"\n🚀 开始飞书异步批量处理")
         print(f"=" * 60)
         
-        # 1. 从飞书加载任务
+        # 1. 从飞书加载任务（支持传入过滤条件，默认使用内置条件）
         feishu_tasks = self.load_tasks_from_feishu(filter_condition)
         
         if not feishu_tasks:
@@ -340,18 +363,6 @@ def load_config(config_path: str) -> Dict[str, Any]:
     return config
 
 
-def create_default_filter():
-    """创建默认过滤条件"""
-    return {
-        "conjunction": "and",
-        "conditions": [
-            {
-                "field_name": "状态",
-                "operator": "is",
-                "value":  ["视频草稿生成"]
-            }
-        ]
-    }
 
 
 def main():
@@ -384,9 +395,8 @@ def main():
         # 创建工作流实例
         workflow = FeishuAsyncBatchWorkflow(config)
         
-        # 执行异步批量处理
+        # 执行异步批量处理（过滤条件已内置到代码中）
         results = workflow.process_async_batch(
-            filter_condition=create_default_filter(),
             include_ids=args.include,
             exclude_ids=args.exclude,
             save_results=not args.no_save

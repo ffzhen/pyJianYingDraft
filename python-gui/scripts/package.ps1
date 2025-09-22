@@ -31,37 +31,28 @@ Remove-Item -Force        (Join-Path $PSScriptRoot 'VideoBatch_console.spec') -E
 ### [4/6] GUI build (disabled for now)
 # Write-Host "[4/6] Run PyInstaller (GUI build)" -ForegroundColor Cyan
 # # Optional ffmpeg include
-# $ffmpeg = Join-Path $PSScriptRoot 'bin\ffmpeg.exe'
+# $ffmpeg = Join-Path $PSScriptRoot '..\resource\ffmpeg.exe'
 # $ffmpegArgs = @()
 # if (Test-Path $ffmpeg) {
 #   Write-Host "  - bundling ffmpeg.exe" -ForegroundColor DarkGreen
-#   $ffmpegArgs = @('--add-binary', ".\bin\ffmpeg.exe;bin")
+#   $ffmpegArgs = @('--add-binary', "..\resource\ffmpeg.exe;bin")
 # }
 # Push-Location $PSScriptRoot
 # pyinstaller -w -F `
-#   video_generator_gui.py `
+#   src\main.py `
 #   --name FeishuVideoBatch `
 #   --paths .. `
 #   --additional-hooks-dir hooks `
 #   --add-data "..\workflow;workflow" `
 #   --add-data "..\pyJianYingDraft\assets;pyJianYingDraft\assets" `
-#   --add-data "config.json;." `
+#   --add-data "config\config.json;config" `
 #   --add-data "..\resource;resource" `
 #   @ffmpegArgs | Out-Host
 # Pop-Location
 
 Write-Host "[5/6] Run PyInstaller (Console build)" -ForegroundColor Cyan
-Push-Location $PSScriptRoot
-pyinstaller -c -F `
-  video_generator_gui.py `
-  --name VideoBatch_console `
-  --paths .. `
-  --additional-hooks-dir hooks `
-  --add-data "..\workflow;workflow" `
-  --add-data "..\pyJianYingDraft\assets;pyJianYingDraft\assets" `
-  --add-data "config.json;." `
-  --add-data "..\resource;resource" `
-  @ffmpegArgs | Out-Host
+Push-Location (Join-Path $PSScriptRoot '..')
+pyinstaller VideoBatch_console.spec --clean | Out-Host
 Pop-Location
 
 ### [6/6] Create zips (disabled; only need dist\VideoBatch_console.exe)
@@ -78,5 +69,5 @@ Pop-Location
 # }
 
 Write-Host "Done" -ForegroundColor Green
-Write-Host "  EXE (console): " (Join-Path $PSScriptRoot 'dist\VideoBatch_console.exe')
+Write-Host "  EXE (console): " (Join-Path $PSScriptRoot '..\dist\VideoBatch_console.exe')
 

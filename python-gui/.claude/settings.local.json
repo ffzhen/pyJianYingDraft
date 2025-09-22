@@ -1,7 +1,19 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)"
+      "Bash(python:*)",
+      "Bash(VideoBatch_console.exe)",
+      "Bash(./VideoBatch_console.exe:*)",
+      "Bash(pyinstaller:*)",
+      "Bash(timeout:*)",
+      "Bash(tasklist:*)",
+      "Bash(taskkill:*)",
+      "Bash(cmd:*)",
+      "Read(//e/code/pyJianYingDraft/**)",
+      "Bash(dir:*)",
+      "Bash(findstr:*)",
+      "Bash(del:*)",
+      "Bash(powershell:*)"
     ],
     "deny": [],
     "ask": []

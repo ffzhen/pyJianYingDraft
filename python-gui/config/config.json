@@ -2,13 +2,14 @@
   "coze": {
     "bearer_token": "pat_gTpRj94iJ22c66yAYIVB8QPTjOm9V0STxvakT8OTZoV5Bb4GTkEBEXuEcdcJARId",
     "workflow_id": "7545326358185525248",
-    "notes_workflow_id": "7538535530012934196"
+    "notes_workflow_id": "7538535530012934196",
+    "content_workflow_id": "7538120578168487955"
   },
   "feishu": {
     "app_id": "cli_a819ce1681b8d00b",
     "app_secret": "Jz3iV94njn7RGpFG13cjFbosgMm3bmii",
     "app_token": "UCG5bzcqNa3v9Ls21XIcgsh7nqf",
-    "content_table_id": "tblOdWMSBhBIiJfE",
+    "content_table_id": "tblYwWoFOXn3Zi8K",
     "content_view_id": "",
     "account_table_id": "tblgDODlgSC83Mba",
     "voice_table_id": "tblLZlJEEtoQWd77",
@@ -16,7 +17,7 @@
     "digital_view_id": "",
     "notes_table_id": "tblaREoG3riOMB8a",
     "notes_view_id": "",
-    "note_link_field": "笔记链接"
+    "note_link_field": "分享链接"
   },
   "volcengine": {
     "appid": "6046310832",
