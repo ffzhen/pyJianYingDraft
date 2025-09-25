@@ -67,7 +67,8 @@
       "Bash(rm:*)",
       "Bash(tree:*)",
       "Read(//e/code/**)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(claude mcp add:*)"
     ],
     "deny": [],
     "ask": []
